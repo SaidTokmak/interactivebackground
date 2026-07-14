@@ -207,3 +207,19 @@ NSIS setup ve 3,95 MB boyutunda iki MSI başarıyla üretildi. Paketlerin SHA-25
 `__TAURI_BUNDLE_TYPE` işaretiyle ilgili verdiği uyarı mevcut kurulumları
 etkilemez; henüz eklenmemiş updater özelliği devreye alınmadan önce Tauri CLI
 ve crate sürümleriyle birlikte yeniden değerlendirilecektir.
+
+## FEATURE-004 — Uygulama ikonu ve görsel kimlik
+
+- Tarih: 15 Temmuz 2026
+- Durum: Uygulandı
+- Final rapora dahil et: Evet
+
+Marka işareti, wallpaper manzarasını ve üst üste dizilmiş görev kartlarını tek
+bir sembolde birleştirecek şekilde üretildi. Arayüzün orman yeşili, fildişi,
+adaçayı ve altın renkleri kullanıldı; küçük görev çubuğu boyutlarında okunması
+için metin, ince çizgi ve küçük detaylardan kaçınıldı.
+
+Kaynak görsel şeffaf köşeli PNG olarak projede saklandı ve Tauri CLI ile ICO,
+ICNS, Windows Store ile 32/128/256 piksel uygulama varlıklarına dönüştürüldü.
+Aynı ikon yönetim penceresi başlığında ve wallpaper marka etiketinde
+kullanılarak executable, installer ve uygulama içi kimlik tekleştirildi.

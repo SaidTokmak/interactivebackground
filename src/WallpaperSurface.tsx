@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { Task, TaskStatus, WallpaperTemplate } from "./types";
+import appIcon from "./assets/interactivebackground-icon.png";
 
 type Props = {
   tasks: Task[];
@@ -25,7 +26,7 @@ export function WallpaperSurface({ tasks, template, editMode, opacity, actual = 
   return (
     <div className={`desktop-preview ${actual ? "actual-surface" : ""}`}>
       <div className="desktop-topline">
-        <span className="desktop-brand">✦ interactivebackground</span>
+        <span className="desktop-brand"><img src={appIcon} alt="" aria-hidden="true" />interactivebackground</span>
         <span className="desktop-mode">⌁ {editMode ? "Düzenleme modu" : "Sakin mod"}</span>
       </div>
       <div className="desktop-icon"><span>▱</span>Projeler</div>

@@ -33,7 +33,7 @@ button { color: inherit; }
 
 .brand-lockup, .header-actions, .panel-heading, .section-title, .preview-toolbar, .widget-header, .preview-controls { display: flex; align-items: center; justify-content: space-between; }
 .brand-lockup { gap: 12px; }
-.brand-mark { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 12px; color: #f7f4ea; background: var(--green); box-shadow: 0 8px 18px rgba(41, 79, 67, .18); }
+.brand-mark { width: 36px; height: 36px; display: block; border-radius: 12px; box-shadow: 0 8px 18px rgba(41, 79, 67, .18); }
 .brand-lockup div { display: grid; gap: 2px; }
 .brand-lockup strong { font-size: 15px; }
 .brand-lockup span:last-child, .status-dot { font-size: 12px; color: var(--muted); }
@@ -91,6 +91,8 @@ h2 { margin-bottom: 0; font-size: 15px; }
 .desktop-preview::after { left: 29%; right: -24%; bottom: -37%; background: #759083; transform: rotate(7deg); }
 .desktop-topline { position: absolute; top: 17px; left: 18px; right: 18px; display: flex; justify-content: space-between; }
 .desktop-brand, .desktop-mode { padding: 7px 10px; border: 1px solid rgba(255,255,255,.2); border-radius: 99px; color: rgba(255,255,255,.9); background: rgba(25,49,43,.22); backdrop-filter: blur(14px); font-size: 10px; }
+.desktop-brand { display: inline-flex; align-items: center; gap: 6px; }
+.desktop-brand img { width: 15px; height: 15px; border-radius: 5px; }
 .desktop-icon { position: absolute; top: 88px; left: 20px; width: 54px; display: grid; justify-items: center; gap: 4px; color: white; font-size: 9px; text-shadow: 0 2px 5px rgba(0,0,0,.3); }
 .desktop-icon span { font-size: 25px; }
 .desktop-icon.second { top: 157px; }

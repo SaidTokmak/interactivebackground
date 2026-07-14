@@ -7,6 +7,7 @@ import { useMonitors } from "./useMonitors";
 import { useSettings } from "./useSettings";
 import { useTasks } from "./useTasks";
 import { WallpaperSurface } from "./WallpaperSurface";
+import appIcon from "./assets/interactivebackground-icon.png";
 
 export function ControlWindow() {
   const { tasks, error: taskError, addTask, toggleTask, moveTask, removeTask } = useTasks();
@@ -97,7 +98,7 @@ export function ControlWindow() {
     <main className="app-shell">
       <header className="app-header">
         <div className="brand-lockup">
-          <span className="brand-mark" aria-hidden="true">✦</span>
+          <img className="brand-mark" src={appIcon} alt="" aria-hidden="true" />
           <div><strong>interactivebackground</strong><span>Masaüstü çalışma alanın</span></div>
         </div>
         <div className="header-actions">

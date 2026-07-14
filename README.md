@@ -23,6 +23,7 @@ interactivebackground, masaüstünü gerektiğinde sakin bir görev alanına dö
 - Explorer yeniden başladığında kontrollü süreç yenileme ve otomatik WorkerW kurtarma
 - Kullanıcı aktivitesine göre ayarlanabilir otomatik sakin moda dönüş
 - Windows oturum açılışında isteğe bağlı ve tray'e gizli otomatik başlatma
+- Uygulama arayüzü, executable ve installer genelinde ortak marka ikonu
 
 ## Geliştirme
 
@@ -68,9 +69,9 @@ teknik kararlar [teknik olay günlüğünde](docs/TECHNICAL_INCIDENTS.md) tutulu
 
 ## Sıradaki adımlar
 
-1. Uygulama ikonu ve marka varlıklarını yenilemek
-2. İlk kullanım karşılama ve izin akışını hazırlamak
-3. Sürüm güncelleme mekanizmasını hazırlamak
+1. İlk kullanım karşılama ve izin akışını hazırlamak
+2. Sürüm güncelleme mekanizmasını hazırlamak
+3. İlk yayın için kod imzalama ve release otomasyonunu hazırlamak
 
 ## Pencere mimarisi
 
