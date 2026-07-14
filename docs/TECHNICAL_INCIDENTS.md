@@ -223,3 +223,17 @@ Kaynak görsel şeffaf köşeli PNG olarak projede saklandı ve Tauri CLI ile IC
 ICNS, Windows Store ile 32/128/256 piksel uygulama varlıklarına dönüştürüldü.
 Aynı ikon yönetim penceresi başlığında ve wallpaper marka etiketinde
 kullanılarak executable, installer ve uygulama içi kimlik tekleştirildi.
+
+İlk yeşil–fildişi görev/manzara işareti kullanıcı değerlendirmesinde fazla
+jenerik ve mevcut renk paleti fazla kurumsal bulunduğu için final marka olarak
+kullanılmadı. Grok, Firefox, Spotify ve Things ikonlarının ortak güçlü yönleri
+olan belirgin siluet, hareket, küçük boyutta okunabilirlik ve özenli uygulama
+ikonu hissi incelendi; hiçbir markanın şekli kopyalanmadan alternatifler
+üretildi.
+
+Finalde `Folded Horizon` adı verilen özgün katlanmış şerit seçildi. Siyah zemin,
+kırık beyaz dış şerit, lacivert iç kıvrım ve mat mercan vurgu kullanıldı. Final
+üretim geçişinde alt kıvrım kalınlaştırıldı, renk kontrastı artırıldı ve güçlü
+parlaklıklar azaltıldı. 32×32 görev çubuğu çıktısı ayrıca görsel olarak kontrol
+edildi. Seçilen kaynak Tauri ikonlarının, uygulama içi marka görselinin ve
+installer varlıklarının tamamında eski tasarımın yerini aldı.
