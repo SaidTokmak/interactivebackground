@@ -157,3 +157,26 @@ Gerçek testte süre geçici olarak 1 dakikaya ayarlandı. 60 saniye sonunda SQL
 `edit_mode=0`, logda otomatik geçiş kaydı ve wallpaper HWND parent sınıfı
 `WorkerW` olarak doğrulandı. Test sonunda kullanıcı ayarı 5 dakikaya geri
 yüklendi.
+
+## FEATURE-002 — Windows ile birlikte tray'e gizli başlatma
+
+- Tarih: 15 Temmuz 2026
+- Durum: Uygulandı ve Windows kayıt defteriyle doğrulandı
+- Final rapora dahil et: Evet
+
+Resmî Tauri 2 autostart eklentisi eklendi. Yönetim ekranındaki anahtar sistemin
+gerçek autostart durumunu `isEnabled` ile okur; `enable` ve `disable` işlemleri
+başarısız olursa UI eski duruma geri döner ve hata kullanıcıya gösterilir.
+Gerekli capability izni yalnızca mevcut `control` ve `wallpaper` pencerelerini
+kapsayan ana capability'ye eklendi.
+
+Başlangıç kaydı `interactivebackground.exe --hidden` komutunu kullanır.
+`--hidden` argümanı setup sırasında yönetim penceresini gizler fakat tray,
+global kısayol, Explorer watchdog ve diğer servisleri açık bırakır. Manuel
+başlangıç davranışı değişmez.
+
+Gerçek testte UI anahtarı açıldığında HKCU Run kaydı ve `--hidden` argümanı
+doğrulandı; anahtar kapatılınca kayıt tamamen silindi. Binary doğrudan
+`--hidden` ile çalıştırıldığında control ve wallpaper native pencerelerinin
+görünmez, sürecin ise yanıt verir durumda olduğu kontrol edildi. Test sonunda
+autostart kapalı bırakıldı.

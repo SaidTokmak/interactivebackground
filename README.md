@@ -22,6 +22,7 @@ interactivebackground, masaüstünü gerektiğinde sakin bir görev alanına dö
 - `Ctrl+Alt+Space` global kısayoluyla sakin/etkileşim modu geçişi
 - Explorer yeniden başladığında kontrollü süreç yenileme ve otomatik WorkerW kurtarma
 - Kullanıcı aktivitesine göre ayarlanabilir otomatik sakin moda dönüş
+- Windows oturum açılışında isteğe bağlı ve tray'e gizli otomatik başlatma
 
 ## Geliştirme
 
@@ -50,9 +51,9 @@ teknik kararlar [teknik olay günlüğünde](docs/TECHNICAL_INCIDENTS.md) tutulu
 
 ## Sıradaki adımlar
 
-1. Windows başlangıcında isteğe bağlı otomatik çalıştırma eklemek
-2. Dağıtım paketi ve ilk kurulum deneyimini hazırlamak
-3. Uygulama ikonu ve marka varlıklarını yenilemek
+1. Dağıtım paketi ve ilk kurulum deneyimini hazırlamak
+2. Uygulama ikonu ve marka varlıklarını yenilemek
+3. İlk kullanım karşılama ve izin akışını hazırlamak
 
 ## Pencere mimarisi
 
@@ -108,3 +109,9 @@ Uygulamanın görünen adı, npm paketi, Rust crate'i ve executable adı
 kaybetmemek için Tauri identifier `com.flowdesk.app` ve mevcut `flowdesk.db`
 dosya adı geriye dönük uyumluluk amacıyla şimdilik korunur; bunlar kullanıcıya
 görünen marka adı değildir.
+
+Windows otomatik başlangıç seçeneği Tauri autostart eklentisinin gerçek sistem
+kaydını okuyup değiştirir. Etkinleştirilen kayıt executable'ı `--hidden`
+argümanıyla çalıştırır. Uygulama bu argümanı gördüğünde kontrol penceresini
+setup aşamasında gizler; tray, global kısayol ve arka plan servisleri çalışmaya
+devam eder. Manuel açılışta yönetim penceresi normal şekilde gösterilir.

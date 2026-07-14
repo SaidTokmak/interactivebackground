@@ -124,6 +124,7 @@ h2 { margin-bottom: 0; font-size: 15px; }
 .switch-row input:checked::before { transform: translateX(16px); }
 .switch-row span { display: grid; gap: 2px; }
 .switch-row b, .opacity-control span { font-size: 11px; }
+.autostart-control { min-width: 210px; }
 .switch-row small { color: var(--muted); font-size: 9px; }
 .opacity-control { width: min(230px, 45%); display: grid; gap: 7px; }
 .opacity-control span { display: flex; justify-content: space-between; }

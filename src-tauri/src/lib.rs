@@ -15,6 +15,12 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_autostart::Builder::new()
+                .app_name("interactivebackground")
+                .arg("--hidden")
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -45,6 +51,11 @@ pub fn run() {
                 .map_err(std::io::Error::other)?;
             desktop_integration::setup_tray(app)?;
             desktop_integration::setup_desktop_recovery(app.handle().clone());
+            if std::env::args().any(|argument| argument == "--hidden") {
+                if let Some(control) = app.get_webview_window("control") {
+                    control.hide()?;
+                }
+            }
             Ok(())
         })
         .on_window_event(|window, event| {

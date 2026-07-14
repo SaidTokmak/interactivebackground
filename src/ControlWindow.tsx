@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { getDesktopHostStatus, hideWallpaper, isTauriRuntime, showWallpaper } from "./taskApi";
 import type { DesktopHostStatus } from "./types";
 import { useMonitors } from "./useMonitors";
@@ -16,8 +17,19 @@ export function ControlWindow() {
   const [opacityDraft, setOpacityDraft] = useState(settings.opacity);
   const [isAdding, setIsAdding] = useState(false);
   const [desktopStatus, setDesktopStatus] = useState<DesktopHostStatus | null>(null);
+  const [autoStartEnabled, setAutoStartEnabled] = useState(false);
+  const [integrationError, setIntegrationError] = useState("");
 
   useEffect(() => setOpacityDraft(settings.opacity), [settings.opacity]);
+  useEffect(() => {
+    if (!isTauriRuntime()) return;
+    void isEnabled()
+      .then((enabled) => {
+        setAutoStartEnabled(enabled);
+        setIntegrationError("");
+      })
+      .catch((reason) => setIntegrationError(String(reason)));
+  }, []);
   useEffect(() => {
     void getDesktopHostStatus().then(setDesktopStatus);
     if (!isTauriRuntime()) return;
@@ -68,6 +80,19 @@ export function ControlWindow() {
     else await openWallpaper();
   }
 
+  async function updateAutoStart(enabled: boolean) {
+    setAutoStartEnabled(enabled);
+    try {
+      if (enabled) await enable();
+      else await disable();
+      setAutoStartEnabled(await isEnabled());
+      setIntegrationError("");
+    } catch (reason) {
+      setAutoStartEnabled(!enabled);
+      setIntegrationError(String(reason));
+    }
+  }
+
   return (
     <main className="app-shell">
       <header className="app-header">
@@ -110,7 +135,7 @@ export function ControlWindow() {
               </form>
             )}
 
-            {(taskError || settingsError || monitorError || desktopStatus?.warning) && <p className="error-message" role="alert">{taskError || settingsError || monitorError || desktopStatus?.warning}</p>}
+            {(taskError || settingsError || monitorError || integrationError || desktopStatus?.warning) && <p className="error-message" role="alert">{taskError || settingsError || monitorError || integrationError || desktopStatus?.warning}</p>}
 
             <div className="manager-list">
               {tasks.map((task) => (
@@ -140,6 +165,14 @@ export function ControlWindow() {
             <label className="switch-row">
               <input type="checkbox" checked={settings.editMode} onChange={(event) => void saveSettings({ ...settings, editMode: event.target.checked })} />
               <span><b>Düzenleme modu</b><small>{settings.editMode ? "Tıklanabilir overlay açık" : "İkonların arkasında sakin görünüm"}</small></span>
+            </label>
+            <label className="switch-row autostart-control">
+              <input
+                type="checkbox"
+                checked={autoStartEnabled}
+                onChange={(event) => void updateAutoStart(event.target.checked)}
+              />
+              <span><b>Windows ile başlat</b><small>Açılışta sistem tepsisinde sessizce çalışır</small></span>
             </label>
             <label className="opacity-control">
               <span>Saydamlık <b>%{opacityDraft}</b></span>

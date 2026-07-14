@@ -5,6 +5,7 @@
   "windows": ["control", "wallpaper"],
   "permissions": [
     "core:default",
-    "opener:default"
+    "opener:default",
+    "autostart:default"
   ]
 }
