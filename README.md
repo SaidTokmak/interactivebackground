@@ -1,0 +1,97 @@
+# Flowdesk
+
+Flowdesk, masaüstünü gerektiğinde sakin bir görev alanına dönüştüren Tauri 2 uygulamasıdır.
+
+## İlk kilometre taşı
+
+- React + TypeScript yönetim ekranı
+- Odak ve Kanban wallpaper önizlemeleri
+- Rust üzerinde görev modeli ve doğrulama
+- Tauri komutlarıyla görev listeleme, ekleme, tamamlama, taşıma ve silme
+- SQLite üzerinde kalıcı görev deposu ve Rust birim testleri
+- Ayrı `control` ve `wallpaper` Tauri pencereleri
+- Rust tarafından yayınlanan `tasks-changed` olayıyla pencere senkronizasyonu
+- SQLite üzerinde kalıcı wallpaper şablonu, saydamlık ve etkileşim ayarları
+- `settings-changed` olayıyla iki yönlü ayar senkronizasyonu
+- İşletim sisteminden okunan çoklu monitör listesi ve kalıcı hedef ekran seçimi
+- Fiziksel monitör koordinatlarına göre wallpaper pencere yerleşimi
+- Windows'ta gerçek `WorkerW` masaüstü katmanına bağlanma ve güvenli ayrılma
+- WorkerW bulunamazsa normal `always-on-bottom` pencereye otomatik geri dönüş
+- WorkerW görüntüleme modu ile tıklanabilir top-level etkileşim modu arasında geçiş
+- Sistem tepsisi menüsü ve çift tıklamayla yönetim penceresini geri açma
+- `Ctrl+Alt+Space` global kısayoluyla sakin/etkileşim modu geçişi
+- Explorer yeniden başladığında kontrollü süreç yenileme ve otomatik WorkerW kurtarma
+
+## Geliştirme
+
+```powershell
+npm install
+npm run tauri dev
+```
+
+Yalnızca frontend'i tarayıcıda açmak için:
+
+```powershell
+npm run dev
+```
+
+## Kontroller
+
+```powershell
+npm run build
+cargo test --manifest-path src-tauri/Cargo.toml
+```
+
+## Teknik kayıtlar
+
+Geliştirme sırasında çözülen önemli hatalar ve proje sonu raporuna aktarılacak
+teknik kararlar [teknik olay günlüğünde](docs/TECHNICAL_INCIDENTS.md) tutulur.
+
+## Sıradaki adımlar
+
+1. Etkileşim katmanına otomatik sakin moda dönüş eklemek
+2. Windows başlangıcında isteğe bağlı otomatik çalıştırma eklemek
+3. Dağıtım paketi ve ilk kurulum deneyimini hazırlamak
+
+## Pencere mimarisi
+
+Her iki pencere aynı React bundle'ını yükler. `App.tsx`, Tauri pencere etiketini
+okuyarak `ControlWindow` veya `WallpaperWindow` bileşenini seçer. Bir görev
+değiştiğinde Rust önce SQLite yazımını tamamlar, ardından bütün pencerelere
+`tasks-changed` olayı yayınlar. Her pencere bu sinyali alınca güncel görevleri
+yeniden SQLite'tan ister.
+
+Wallpaper ayarları `app_settings` tablosunda tek satır olarak tutulur. Ayar
+değişiklikleri de aynı invalidation yaklaşımıyla `settings-changed` olayı
+üzerinden bütün pencerelere bildirilir.
+
+Monitör seçimi ad, fiziksel konum ve çözünürlükten oluşturulan bir anahtarla
+`monitor_id` sütununda saklanır. Wallpaper gösterilmeden önce native fullscreen
+kapatılır; pencereye seçilen monitörün `PhysicalPosition` ve `PhysicalSize`
+değerleri uygulanır.
+
+Windows'ta `desktop_host.rs`, wallpaper HWND'sini Explorer'ın `WorkerW`
+penceresine child olarak bağlar. Bağlanmadan önce eski parent ve `GWL_STYLE`
+değerleri kaydedilir. WorkerW, Microsoft'un kararlı bir uygulama API'si
+olmadığı için keşif veya bağlanma başarısız olursa wallpaper normal pencere
+modunda çalışmaya devam eder.
+
+WorkerW katmanı masaüstü ikonlarının arkasındadır ve Explorer fare olaylarını
+önce yakalar. Bu nedenle WorkerW sakin görüntüleme modudur. `Düzenleme modu`
+açıldığında aynı wallpaper penceresi önce WorkerW'den ayrılır, seçilen monitörün
+fiziksel sınırlarına top-level ve always-on-top olarak yerleşir. WebView bu
+durumda fare/klavye olaylarını alabilir. Düzenleme kapatılınca pencere yeniden
+WorkerW altına bağlanır; React state'i, Rust komutları ve SQLite verisi korunur.
+
+Wallpaper kapatıldığında WorkerW'den ayrılmış gizli bir native pencere
+bırakılmaz. İkinci monitörlerde DWM/Explorer kompozisyon izi oluşmaması için
+wallpaper `WebviewWindow` tamamen yok edilir ve Windows masaüstü katmanı mevcut
+monitör duvar kâğıtları korunarak yenilenir. Wallpaper tekrar açılırken aynı
+etiketle yeni bir pencere oluşturulur; kalıcı görev ve ayar verileri SQLite'tan
+yeniden yüklenir.
+
+Explorer yeniden başlatılırsa WorkerW ile birlikte child wallpaper HWND'si de
+Windows tarafından yok edilir. Flowdesk watchdog'u geçersiz native bağlantıyı
+algılar, bir kurtarma işareti yazar ve süreci kontrollü olarak yeniden başlatır.
+Yeni süreç Tauri `RunEvent::Ready` aşamasında kalıcı ayarları SQLite'tan okuyup
+wallpaper'ı yeni Explorer sürecinin WorkerW katmanına otomatik bağlar.

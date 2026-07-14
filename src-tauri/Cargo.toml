@@ -1,0 +1,41 @@
+[package]
+name = "flowdesk"
+version = "0.1.0"
+description = "Sakin ve etkileşimli masaüstü çalışma alanı"
+authors = ["Flowdesk"]
+edition = "2024"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+# The `_lib` suffix may seem redundant but it is necessary
+# to make the lib name unique and wouldn't conflict with the bin name.
+# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+name = "flowdesk_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "=2.5.3", features = [] }
+
+[dependencies]
+tauri = { version = "=2.9.5", features = ["tray-icon"] }
+tauri-plugin-opener = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# 0.40.1'in libsqlite3-sys build script'i mevcut stable Rust'ta kararsız
+# `cfg_select` kullanıyor. Uyumlu sürümü kesin olarak sabitliyoruz.
+rusqlite = { version = "=0.39.0", features = ["bundled"] }
+
+# WorkerW masaüstü katmanı yalnızca Windows'ta derlenir. `windows-sys`, Win32
+# fonksiyonlarına ince ve doğrudan bir FFI katmanı sağlar; diğer platformların
+# bağımlılık ağacına eklenmez.
+[target.'cfg(target_os = "windows")'.dependencies]
+tauri-plugin-global-shortcut = "=2.3.1"
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+] }
+windows = { version = "0.61", features = [
+    "Win32_System_Com",
+    "Win32_UI_Shell",
+] }
