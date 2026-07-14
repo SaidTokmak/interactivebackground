@@ -44,6 +44,23 @@ npm run build
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
 
+## Windows kurulum paketleri
+
+```powershell
+npm run build:desktop
+```
+
+Bu komut iki dağıtım biçimi üretir:
+
+- NSIS `.exe`: Türkçe/İngilizce dil seçimi sunan, mevcut kullanıcıya kurulan
+  standart kurulum paketi.
+- WiX `.msi`: Türkçe ve İngilizce kurumsal dağıtım paketleri.
+
+Çıktılar `src-tauri/target/release/bundle/nsis` ve
+`src-tauri/target/release/bundle/msi` klasörlerine yazılır. Geliştirme sürümü
+henüz kod imzalama sertifikasına sahip değildir; bu nedenle Windows ilk
+çalıştırmada bilinmeyen yayıncı uyarısı gösterebilir.
+
 ## Teknik kayıtlar
 
 Geliştirme sırasında çözülen önemli hatalar ve proje sonu raporuna aktarılacak
@@ -51,9 +68,9 @@ teknik kararlar [teknik olay günlüğünde](docs/TECHNICAL_INCIDENTS.md) tutulu
 
 ## Sıradaki adımlar
 
-1. Dağıtım paketi ve ilk kurulum deneyimini hazırlamak
-2. Uygulama ikonu ve marka varlıklarını yenilemek
-3. İlk kullanım karşılama ve izin akışını hazırlamak
+1. Uygulama ikonu ve marka varlıklarını yenilemek
+2. İlk kullanım karşılama ve izin akışını hazırlamak
+3. Sürüm güncelleme mekanizmasını hazırlamak
 
 ## Pencere mimarisi
 

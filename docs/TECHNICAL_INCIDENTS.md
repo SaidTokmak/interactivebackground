@@ -180,3 +180,30 @@ doğrulandı; anahtar kapatılınca kayıt tamamen silindi. Binary doğrudan
 `--hidden` ile çalıştırıldığında control ve wallpaper native pencerelerinin
 görünmez, sürecin ise yanıt verir durumda olduğu kontrol edildi. Test sonunda
 autostart kapalı bırakıldı.
+
+## FEATURE-003 — Windows kurulum paketleri
+
+- Tarih: 15 Temmuz 2026
+- Durum: Uygulandı ve gerçek release paketleri üretildi
+- Final rapora dahil et: Evet
+
+Dağıtım hedefleri NSIS ve WiX olarak açıkça sabitlendi. NSIS paketi yönetici
+izni gerektirmeyen `currentUser` modunda kurulur ve kurulum başında Türkçe veya
+İngilizce dil seçimi sunar. WiX tarafı aynı sürüm için Türkçe ve İngilizce MSI
+paketleri üretir. Ürün adı ileride değişse bile Windows'un uygulamayı ayrı bir
+ürün sanmaması için WiX upgrade code
+`87d06055-f5ac-5cc7-8fc3-fd9d28902c89` olarak kalıcılaştırıldı.
+
+WebView2 bulunmayan sistemlerde küçük Microsoft bootstrapper'ı sessizce
+indirip kuran mod seçildi. Daha yeni bir sürüm kuruluysa eski paketin üzerine
+downgrade yapılması engellendi. Paketler henüz ticari bir kod imzalama
+sertifikasıyla imzalanmadığı için ilk yayınlarda Windows bilinmeyen yayıncı
+uyarısı gösterebilir.
+
+Release doğrulamasında optimize edilmiş `interactivebackground.exe`, 2,70 MB
+NSIS setup ve 3,95 MB boyutunda iki MSI başarıyla üretildi. Paketlerin SHA-256
+özetleri alındı ve Windows metadata'sında ürün/sürüm değerleri
+`interactivebackground 0.1.0` olarak doğrulandı. Tauri paketleyicisinin
+`__TAURI_BUNDLE_TYPE` işaretiyle ilgili verdiği uyarı mevcut kurulumları
+etkilemez; henüz eklenmemiş updater özelliği devreye alınmadan önce Tauri CLI
+ve crate sürümleriyle birlikte yeniden değerlendirilecektir.
