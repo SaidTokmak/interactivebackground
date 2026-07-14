@@ -65,6 +65,7 @@ pub fn update_settings(
 ) -> Result<AppSettings, String> {
     let previous = store.get_settings()?;
     let settings = store.update_settings(settings)?;
+    desktop_host.configure_auto_calm(settings.auto_calm_minutes);
     notify_settings_change(&app);
     // Ayar veritabanına başarıyla yazıldı. Anlık pencere taşıma ikincil bir yan
     // etkidir; başarısız olması kalıcı kaydı başarısız gibi göstermemelidir.
@@ -178,6 +179,30 @@ pub fn close_wallpaper_window(app: &AppHandle) -> Result<(), String> {
     hide_wallpaper_inner(app, &desktop_host)
 }
 
+#[tauri::command]
+pub fn record_interaction_activity(
+    desktop_host: State<'_, DesktopHostState>,
+) -> Result<(), String> {
+    desktop_host.record_interaction_activity()
+}
+
+pub fn apply_auto_calm_if_due(app: &AppHandle) -> Result<bool, String> {
+    let desktop_host = app.state::<DesktopHostState>();
+    if !desktop_host.auto_calm_due() {
+        return Ok(false);
+    }
+
+    let store = app.state::<AppStore>();
+    let mut settings = store.get_settings()?;
+    settings.edit_mode = false;
+    let settings = store.update_settings(settings)?;
+    notify_settings_change(app);
+    activate_wallpaper_mode(app, &desktop_host, settings.monitor_id.as_deref())?;
+    notify_desktop_host_change(app);
+    eprintln!("interactivebackground otomatik olarak sakin moda döndü.");
+    Ok(true)
+}
+
 pub fn recover_desktop_host(app: &AppHandle) -> Result<bool, String> {
     let desktop_host = app.state::<DesktopHostState>();
     if !desktop_host.recovery_needed() {
@@ -192,7 +217,7 @@ pub fn recover_desktop_host(app: &AppHandle) -> Result<bool, String> {
     std::fs::write(&marker, b"workerw-recovery")
         .map_err(|error| format!("Kurtarma işareti yazılamadı: {error}"))?;
     eprintln!(
-        "Explorer wallpaper HWND'sini yok etti; Flowdesk kurtarma için yeniden başlatılıyor."
+        "Explorer wallpaper HWND'sini yok etti; interactivebackground kurtarma için yeniden başlatılıyor."
     );
     app.request_restart();
     Ok(true)
@@ -202,7 +227,7 @@ pub fn restore_wallpaper_after_restart(app: &AppHandle) -> Result<(), String> {
     let store = app.state::<AppStore>();
     let desktop_host = app.state::<DesktopHostState>();
     show_wallpaper_inner(app, &store, &desktop_host)?;
-    eprintln!("Flowdesk wallpaper yeniden başlatma sonrasında kurtarıldı.");
+    eprintln!("interactivebackground wallpaper yeniden başlatma sonrasında kurtarıldı.");
     Ok(())
 }
 
@@ -228,7 +253,7 @@ fn hide_wallpaper_inner(app: &AppHandle, desktop_host: &DesktopHostState) -> Res
     desktop_host.destroy_wallpaper_window(app)?;
 
     notify_desktop_host_change(app);
-    eprintln!("Flowdesk wallpaper penceresi tamamen kapatıldı.");
+    eprintln!("interactivebackground wallpaper penceresi tamamen kapatıldı.");
 
     Ok(())
 }
@@ -239,7 +264,7 @@ fn ensure_wallpaper_window(app: &AppHandle) -> Result<tauri::WebviewWindow, Stri
     }
 
     WebviewWindowBuilder::new(app, "wallpaper", WebviewUrl::App("index.html".into()))
-        .title("Flowdesk Wallpaper")
+        .title("interactivebackground Wallpaper")
         .inner_size(1280.0, 720.0)
         .resizable(false)
         .decorations(false)

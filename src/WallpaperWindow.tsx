@@ -1,4 +1,5 @@
-import { hideWallpaper } from "./taskApi";
+import { useEffect } from "react";
+import { hideWallpaper, isTauriRuntime, recordInteractionActivity } from "./taskApi";
 import { useSettings } from "./useSettings";
 import { useTasks } from "./useTasks";
 import { WallpaperSurface } from "./WallpaperSurface";
@@ -6,6 +7,28 @@ import { WallpaperSurface } from "./WallpaperSurface";
 export function WallpaperWindow() {
   const { tasks, error, toggleTask, moveTask } = useTasks();
   const { settings, settingsError, saveSettings } = useSettings();
+
+  useEffect(() => {
+    if (!settings.editMode || !isTauriRuntime()) return;
+
+    let lastReported = 0;
+    const reportActivity = () => {
+      const now = Date.now();
+      if (now - lastReported < 15_000) return;
+      lastReported = now;
+      void recordInteractionActivity();
+    };
+
+    reportActivity();
+    window.addEventListener("pointermove", reportActivity);
+    window.addEventListener("pointerdown", reportActivity);
+    window.addEventListener("keydown", reportActivity);
+    return () => {
+      window.removeEventListener("pointermove", reportActivity);
+      window.removeEventListener("pointerdown", reportActivity);
+      window.removeEventListener("keydown", reportActivity);
+    };
+  }, [settings.editMode]);
 
   return (
     <main className="wallpaper-window">

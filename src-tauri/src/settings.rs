@@ -14,12 +14,19 @@ pub struct AppSettings {
     pub opacity: u8,
     pub edit_mode: bool,
     pub monitor_id: Option<String>,
+    pub auto_calm_minutes: Option<u16>,
 }
 
 impl AppSettings {
     pub fn validate(self) -> Result<Self, String> {
         if !(40..=100).contains(&self.opacity) {
             return Err("Saydamlık değeri 40 ile 100 arasında olmalıdır.".into());
+        }
+        if self
+            .auto_calm_minutes
+            .is_some_and(|minutes| !(1..=120).contains(&minutes))
+        {
+            return Err("Otomatik sakin mod süresi 1 ile 120 dakika arasında olmalıdır.".into());
         }
         Ok(self)
     }

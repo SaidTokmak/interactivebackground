@@ -14,6 +14,7 @@ export type AppSettings = {
   opacity: number;
   editMode: boolean;
   monitorId: string | null;
+  autoCalmMinutes: number | null;
 };
 
 export type MonitorInfo = {

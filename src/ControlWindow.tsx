@@ -73,7 +73,7 @@ export function ControlWindow() {
       <header className="app-header">
         <div className="brand-lockup">
           <span className="brand-mark" aria-hidden="true">✦</span>
-          <div><strong>Flowdesk</strong><span>Masaüstü çalışma alanın</span></div>
+          <div><strong>interactivebackground</strong><span>Masaüstü çalışma alanın</span></div>
         </div>
         <div className="header-actions">
           <span className="status-dot"><i /> SQLite bağlı</span>
@@ -161,6 +161,22 @@ export function ControlWindow() {
                     {monitor.name}{monitor.isPrimary ? " · Ana" : ""} — {monitor.width}×{monitor.height} @{monitor.scaleFactor.toFixed(2)}x
                   </option>
                 ))}
+              </select>
+            </label>
+            <label className="monitor-control auto-calm-control">
+              <span>Otomatik sakin mod</span>
+              <select
+                value={settings.autoCalmMinutes ?? 0}
+                onChange={(event) => void saveSettings({
+                  ...settings,
+                  autoCalmMinutes: Number(event.target.value) || null,
+                })}
+              >
+                <option value={0}>Kapalı</option>
+                <option value={1}>1 dakika</option>
+                <option value={5}>5 dakika</option>
+                <option value={10}>10 dakika</option>
+                <option value={15}>15 dakika</option>
               </select>
             </label>
           </div>

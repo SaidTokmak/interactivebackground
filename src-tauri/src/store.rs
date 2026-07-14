@@ -46,7 +46,8 @@ impl AppStore {
                      template  TEXT NOT NULL CHECK (template IN ('focus', 'kanban')),
                      opacity   INTEGER NOT NULL CHECK (opacity BETWEEN 40 AND 100),
                      edit_mode INTEGER NOT NULL CHECK (edit_mode IN (0, 1)),
-                     monitor_id TEXT
+                     monitor_id TEXT,
+                     auto_calm_minutes INTEGER DEFAULT 5
                  );
 
                  INSERT OR IGNORE INTO app_settings (id, template, opacity, edit_mode)
@@ -55,8 +56,9 @@ impl AppStore {
             .map_err(database_error)?;
 
         // `CREATE TABLE IF NOT EXISTS` mevcut tabloya yeni sütun eklemez. Eski
-        // Flowdesk veritabanlarını ileri taşımak için sütunu ayrıca kontrol ederiz.
+        // Eski veritabanlarını ileri taşımak için sütunu ayrıca kontrol ederiz.
         ensure_monitor_column(&connection)?;
+        ensure_auto_calm_column(&connection)?;
 
         let store = Self {
             connection: Mutex::new(connection),
@@ -184,7 +186,7 @@ impl AppStore {
         let connection = self.lock_connection()?;
         connection
             .query_row(
-                "SELECT template, opacity, edit_mode, monitor_id
+                "SELECT template, opacity, edit_mode, monitor_id, auto_calm_minutes
                  FROM app_settings WHERE id = 1",
                 [],
                 settings_from_row,
@@ -198,13 +200,15 @@ impl AppStore {
         connection
             .execute(
                 "UPDATE app_settings
-                 SET template = ?1, opacity = ?2, edit_mode = ?3, monitor_id = ?4
+                 SET template = ?1, opacity = ?2, edit_mode = ?3, monitor_id = ?4,
+                     auto_calm_minutes = ?5
                  WHERE id = 1",
                 params![
                     settings.template.as_database_value(),
                     i64::from(settings.opacity),
                     settings.edit_mode,
                     settings.monitor_id,
+                    settings.auto_calm_minutes,
                 ],
             )
             .map_err(database_error)?;
@@ -271,6 +275,7 @@ fn settings_from_row(row: &Row<'_>) -> rusqlite::Result<AppSettings> {
         opacity,
         edit_mode: row.get(2)?,
         monitor_id: row.get(3)?,
+        auto_calm_minutes: row.get(4)?,
     })
 }
 
@@ -287,6 +292,27 @@ fn ensure_monitor_column(connection: &Connection) -> Result<(), String> {
     if !column_names.iter().any(|name| name == "monitor_id") {
         connection
             .execute("ALTER TABLE app_settings ADD COLUMN monitor_id TEXT", [])
+            .map_err(database_error)?;
+    }
+    Ok(())
+}
+
+fn ensure_auto_calm_column(connection: &Connection) -> Result<(), String> {
+    let mut statement = connection
+        .prepare("PRAGMA table_info(app_settings)")
+        .map_err(database_error)?;
+    let column_names = statement
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(database_error)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(database_error)?;
+
+    if !column_names.iter().any(|name| name == "auto_calm_minutes") {
+        connection
+            .execute(
+                "ALTER TABLE app_settings ADD COLUMN auto_calm_minutes INTEGER DEFAULT 5",
+                [],
+            )
             .map_err(database_error)?;
     }
     Ok(())
@@ -367,6 +393,7 @@ mod tests {
                 opacity: 76,
                 edit_mode: true,
                 monitor_id: Some("monitor:0:0:1920x1080".into()),
+                auto_calm_minutes: Some(5),
             })
             .unwrap();
         assert_eq!(updated.template, WallpaperTemplate::Kanban);
@@ -399,6 +426,7 @@ mod tests {
 
         let store = AppStore::from_connection(connection).unwrap();
         assert_eq!(store.get_settings().unwrap().monitor_id, None);
+        assert_eq!(store.get_settings().unwrap().auto_calm_minutes, Some(5));
 
         let updated = store
             .update_settings(AppSettings {
@@ -406,6 +434,7 @@ mod tests {
                 opacity: 82,
                 edit_mode: false,
                 monitor_id: Some("display:0:0:2560x1440".into()),
+                auto_calm_minutes: Some(10),
             })
             .unwrap();
         assert_eq!(store.get_settings().unwrap().monitor_id, updated.monitor_id);
@@ -418,7 +447,7 @@ mod tests {
             .unwrap()
             .as_nanos();
         let database_path = std::env::temp_dir().join(format!(
-            "flowdesk-{}-{unique_suffix}.db",
+            "interactivebackground-{}-{unique_suffix}.db",
             std::process::id()
         ));
 
@@ -436,6 +465,7 @@ mod tests {
                     opacity: 74,
                     edit_mode: true,
                     monitor_id: Some("monitor:0:0:1920x1080".into()),
+                    auto_calm_minutes: Some(15),
                 })
                 .unwrap();
         }
@@ -455,6 +485,7 @@ mod tests {
                     opacity: 74,
                     edit_mode: true,
                     monitor_id: Some("monitor:0:0:1920x1080".into()),
+                    auto_calm_minutes: Some(15),
                 }
             );
         }

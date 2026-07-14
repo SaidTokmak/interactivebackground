@@ -32,8 +32,14 @@ pub fn run() {
             std::fs::create_dir_all(&app_data_directory)?;
             let database_path = app_data_directory.join("flowdesk.db");
             let store = AppStore::open(database_path).map_err(std::io::Error::other)?;
+            let auto_calm_minutes = store
+                .get_settings()
+                .map_err(std::io::Error::other)?
+                .auto_calm_minutes;
             app.manage(store);
-            app.manage(DesktopHostState::default());
+            let desktop_host = DesktopHostState::default();
+            desktop_host.configure_auto_calm(auto_calm_minutes);
+            app.manage(desktop_host);
             app.global_shortcut()
                 .register("Ctrl+Alt+Space")
                 .map_err(std::io::Error::other)?;
@@ -79,9 +85,10 @@ pub fn run() {
             commands::show_wallpaper,
             commands::hide_wallpaper,
             commands::desktop_host_status,
+            commands::record_interaction_activity,
         ])
         .build(tauri::generate_context!())
-        .expect("Flowdesk oluşturulurken beklenmeyen bir hata oluştu")
+        .expect("interactivebackground oluşturulurken beklenmeyen bir hata oluştu")
         .run(|app, event| {
             if let tauri::RunEvent::Ready = event {
                 let marker = match app.path().app_data_dir() {

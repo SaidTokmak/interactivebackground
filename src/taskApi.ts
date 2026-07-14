@@ -69,6 +69,10 @@ export async function hideWallpaper(): Promise<void> {
   if (isTauriRuntime()) await invoke("hide_wallpaper");
 }
 
+export async function recordInteractionActivity(): Promise<void> {
+  if (isTauriRuntime()) await invoke("record_interaction_activity");
+}
+
 export async function getDesktopHostStatus(): Promise<DesktopHostStatus> {
   if (isTauriRuntime()) return invoke<DesktopHostStatus>("desktop_host_status");
   return { attached: false, mode: "window", warning: null };
@@ -104,4 +108,5 @@ let browserSettings: AppSettings = {
   opacity: 82,
   editMode: false,
   monitorId: null,
+  autoCalmMinutes: 5,
 };

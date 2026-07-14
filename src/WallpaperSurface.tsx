@@ -25,7 +25,7 @@ export function WallpaperSurface({ tasks, template, editMode, opacity, actual = 
   return (
     <div className={`desktop-preview ${actual ? "actual-surface" : ""}`}>
       <div className="desktop-topline">
-        <span className="desktop-brand">✦ Flowdesk</span>
+        <span className="desktop-brand">✦ interactivebackground</span>
         <span className="desktop-mode">⌁ {editMode ? "Düzenleme modu" : "Sakin mod"}</span>
       </div>
       <div className="desktop-icon"><span>▱</span>Projeler</div>

@@ -1,4 +1,4 @@
-# Flowdesk Teknik Olay Günlüğü
+# interactivebackground Teknik Olay Günlüğü
 
 Bu dosya, geliştirme sırasında karşılaşılan önemli hataların proje sonundaki
 detaylı teknik rapora aktarılması için kalıcı kayıt olarak tutulur.
@@ -13,7 +13,7 @@ detaylı teknik rapora aktarılması için kalıcı kayıt olarak tutulur.
 ### Belirti
 
 Wallpaper kapatıldıktan veya yönetim paneline dönüldükten sonra ikinci
-monitörde `Flowdesk Wallpaper` başlıklı siyah bir pencere, başlık çubuğu ve
+monitörde o zamanki adıyla `Flowdesk Wallpaper` başlıklı siyah bir pencere, başlık çubuğu ve
 beyaz çerçeve kalıyordu. Tauri ve Win32 görünürlük sorguları pencereyi gizli
 göstermesine rağmen ekrandaki görüntü kaybolmuyordu. Sorun özellikle
 `(2560, -247)` başlangıç koordinatına ve `1080x1920` çözünürlüğe sahip dikey
@@ -115,13 +115,45 @@ süreç içinde aynı `wallpaper` etiketiyle güvenilir bir WebView oluşturulam
 
 Üç saniyelik watchdog yalnızca WorkerW modunun aktif olması gerektiği durumda
 native pencere ve parent handle'larını doğrular. Bağlantı geçersizleşirse app
-data dizinine tek kullanımlık bir kurtarma işareti yazılır ve Flowdesk Tauri'nin
+data dizinine tek kullanımlık bir kurtarma işareti yazılır ve interactivebackground Tauri'nin
 kontrollü `request_restart` akışıyla yeniden başlatılır. Yeni süreç
 `RunEvent::Ready` olayında işareti görür, SQLite ayarlarını yükler, wallpaper'ı
 yeniden oluşturur ve yeni Explorer sürecinin WorkerW katmanına bağlar. İşaret
 yalnızca başarılı kurtarma sonrasında silinir.
 
-Gerçek testte Explorer PID'si ve Flowdesk PID'si değişti, uygulama yanıt vermeye
+Gerçek testte Explorer PID'si ve uygulama PID'si değişti, uygulama yanıt vermeye
 devam etti ve yeni wallpaper HWND'sinin parent sınıfı native olarak `WorkerW`
 şeklinde doğrulandı. Normal kullanıcı kapatmasında kurtarma isteği oluşmadığı da
 ayrıca kontrol edildi.
+
+## ADR-001 — Ürün adının interactivebackground olarak değiştirilmesi
+
+- Tarih: 15 Temmuz 2026
+- Durum: Uygulandı
+- Final rapora dahil et: Evet
+
+Görünen ürün adı, pencere başlıkları, tray metinleri, npm paketi, Rust package ve
+crate adları ile Windows executable adı `interactivebackground` olarak
+değiştirildi. Önceki geliştirme verilerinin kaybolmaması için Tauri identifier
+`com.flowdesk.app` ve SQLite dosya adı `flowdesk.db` geçici olarak legacy veri
+kimliği şeklinde korundu. Teknik olay kayıtlarındaki eski Flowdesk ifadeleri,
+olayın yaşandığı sürümün gerçek pencere adını belgelemek için değiştirilmedi.
+
+## FEATURE-001 — Aktiviteye göre otomatik sakin moda dönüş
+
+- Tarih: 15 Temmuz 2026
+- Durum: Uygulandı ve gerçek zamanlı test edildi
+- Final rapora dahil et: Evet
+
+Etkileşim modu için kapalı, 1, 5, 10 ve 15 dakika seçenekleri eklendi. Süre
+SQLite `app_settings.auto_calm_minutes` alanında kalıcı tutulur. Eski
+veritabanları açılırken sütun otomatik eklenir ve varsayılan değer 5 dakikadır.
+Wallpaper WebView'indeki pointer ve klavye aktivitesi 15 saniye throttle ile
+Rust state'ine iletilir. Watchdog süreyi saniyede bir kontrol eder; süre dolunca
+`edit_mode` veritabanında kapatılır, UI event ile güncellenir ve native pencere
+WorkerW sakin moduna geri bağlanır.
+
+Gerçek testte süre geçici olarak 1 dakikaya ayarlandı. 60 saniye sonunda SQLite
+`edit_mode=0`, logda otomatik geçiş kaydı ve wallpaper HWND parent sınıfı
+`WorkerW` olarak doğrulandı. Test sonunda kullanıcı ayarı 5 dakikaya geri
+yüklendi.

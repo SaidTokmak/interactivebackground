@@ -8,6 +8,7 @@ const defaults: AppSettings = {
   opacity: 82,
   editMode: false,
   monitorId: null,
+  autoCalmMinutes: 5,
 };
 
 export function useSettings() {

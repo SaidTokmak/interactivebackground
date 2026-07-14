@@ -1,6 +1,6 @@
-# Flowdesk
+# interactivebackground
 
-Flowdesk, masaüstünü gerektiğinde sakin bir görev alanına dönüştüren Tauri 2 uygulamasıdır.
+interactivebackground, masaüstünü gerektiğinde sakin bir görev alanına dönüştüren Tauri 2 uygulamasıdır.
 
 ## İlk kilometre taşı
 
@@ -21,6 +21,7 @@ Flowdesk, masaüstünü gerektiğinde sakin bir görev alanına dönüştüren T
 - Sistem tepsisi menüsü ve çift tıklamayla yönetim penceresini geri açma
 - `Ctrl+Alt+Space` global kısayoluyla sakin/etkileşim modu geçişi
 - Explorer yeniden başladığında kontrollü süreç yenileme ve otomatik WorkerW kurtarma
+- Kullanıcı aktivitesine göre ayarlanabilir otomatik sakin moda dönüş
 
 ## Geliştirme
 
@@ -49,9 +50,9 @@ teknik kararlar [teknik olay günlüğünde](docs/TECHNICAL_INCIDENTS.md) tutulu
 
 ## Sıradaki adımlar
 
-1. Etkileşim katmanına otomatik sakin moda dönüş eklemek
-2. Windows başlangıcında isteğe bağlı otomatik çalıştırma eklemek
-3. Dağıtım paketi ve ilk kurulum deneyimini hazırlamak
+1. Windows başlangıcında isteğe bağlı otomatik çalıştırma eklemek
+2. Dağıtım paketi ve ilk kurulum deneyimini hazırlamak
+3. Uygulama ikonu ve marka varlıklarını yenilemek
 
 ## Pencere mimarisi
 
@@ -91,7 +92,19 @@ etiketle yeni bir pencere oluşturulur; kalıcı görev ve ayar verileri SQLite'
 yeniden yüklenir.
 
 Explorer yeniden başlatılırsa WorkerW ile birlikte child wallpaper HWND'si de
-Windows tarafından yok edilir. Flowdesk watchdog'u geçersiz native bağlantıyı
+Windows tarafından yok edilir. interactivebackground watchdog'u geçersiz native bağlantıyı
 algılar, bir kurtarma işareti yazar ve süreci kontrollü olarak yeniden başlatır.
 Yeni süreç Tauri `RunEvent::Ready` aşamasında kalıcı ayarları SQLite'tan okuyup
 wallpaper'ı yeni Explorer sürecinin WorkerW katmanına otomatik bağlar.
+
+Etkileşim modu açıldığında Rust son kullanıcı aktivitesinin zamanını tutar.
+Wallpaper WebView'i fare ve klavye aktivitesini en fazla 15 saniyede bir native
+katmana bildirir. Ayarlanan 1, 5, 10 veya 15 dakikalık süre boyunca aktivite
+olmazsa ayar SQLite'ta sakin moda çevrilir ve pencere otomatik olarak WorkerW
+katmanına geri bağlanır. Bu davranış yönetim ekranından tamamen kapatılabilir.
+
+Uygulamanın görünen adı, npm paketi, Rust crate'i ve executable adı
+`interactivebackground` olarak değiştirilmiştir. Mevcut geliştirme verilerini
+kaybetmemek için Tauri identifier `com.flowdesk.app` ve mevcut `flowdesk.db`
+dosya adı geriye dönük uyumluluk amacıyla şimdilik korunur; bunlar kullanıcıya
+görünen marka adı değildir.

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Flowdesk",
+  "productName": "interactivebackground",
   "version": "0.1.0",
   "identifier": "com.flowdesk.app",
   "build": {
@@ -13,7 +13,7 @@
     "windows": [
       {
         "label": "control",
-        "title": "Flowdesk",
+        "title": "interactivebackground",
         "width": 1180,
         "height": 760,
         "minWidth": 920,
@@ -22,7 +22,7 @@
       },
       {
         "label": "wallpaper",
-        "title": "Flowdesk Wallpaper",
+        "title": "interactivebackground Wallpaper",
         "width": 1280,
         "height": 720,
         "resizable": false,

@@ -116,7 +116,7 @@ h2 { margin-bottom: 0; font-size: 15px; }
 .kanban-column > span { display: block; margin-bottom: 7px; color: #728078; font-size: 9px; }
 .kanban-card { width: 100%; margin-bottom: 6px; padding: 8px; border: 0; border-radius: 8px; text-align: left; color: #34443d; background: rgba(225,231,225,.88); font-size: 9px; cursor: pointer; }
 
-.preview-controls { gap: 22px; padding-top: 16px; }
+.preview-controls { gap: 16px; padding-top: 16px; flex-wrap: wrap; }
 .switch-row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .switch-row input { appearance: none; width: 36px; height: 20px; padding: 2px; border-radius: 99px; background: #cdd5cf; cursor: pointer; transition: background .15s ease; }
 .switch-row input::before { content: ""; display: block; width: 16px; height: 16px; border-radius: 50%; background: white; box-shadow: 0 1px 4px rgba(0,0,0,.15); transition: transform .15s ease; }
@@ -132,6 +132,7 @@ h2 { margin-bottom: 0; font-size: 15px; }
 .monitor-control span { font-size: 11px; }
 .monitor-control select { width: 100%; padding: 8px 9px; border: 1px solid #d2dad4; border-radius: 9px; color: var(--ink); background: #f9faf7; font-size: 10px; outline: none; }
 .monitor-control select:focus { border-color: #6c8d80; box-shadow: 0 0 0 3px rgba(41,79,67,.09); }
+.auto-calm-control { min-width: 150px; }
 
 .wallpaper-window { position: relative; width: 100vw; height: 100vh; overflow: hidden; background: #6f8d80; }
 .wallpaper-window-controls { position: absolute; z-index: 20; top: 18px; left: 50%; display: flex; align-items: center; gap: 8px; padding: 6px; border: 1px solid rgba(255,255,255,.35); border-radius: 13px; background: rgba(242,246,240,.82); box-shadow: 0 10px 30px rgba(29,50,43,.16); backdrop-filter: blur(16px); transform: translateX(-50%); }

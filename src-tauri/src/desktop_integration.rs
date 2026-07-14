@@ -9,7 +9,7 @@ use tauri::{
 const SHOW_CONTROL: &str = "show-control";
 const TOGGLE_WALLPAPER: &str = "toggle-wallpaper";
 const TOGGLE_INTERACTION: &str = "toggle-interaction";
-const QUIT: &str = "quit-flowdesk";
+const QUIT: &str = "quit-interactivebackground";
 
 pub fn setup_tray(app: &mut App) -> tauri::Result<()> {
     let menu = MenuBuilder::new(app)
@@ -20,12 +20,12 @@ pub fn setup_tray(app: &mut App) -> tauri::Result<()> {
             "Etkileşim modunu aç / kapat   Ctrl+Alt+Space",
         )
         .separator()
-        .text(QUIT, "Flowdesk'ten çık")
+        .text(QUIT, "interactivebackground'dan çık")
         .build()?;
 
-    let mut tray = TrayIconBuilder::with_id("flowdesk")
+    let mut tray = TrayIconBuilder::with_id("interactivebackground")
         .menu(&menu)
-        .tooltip("Flowdesk")
+        .tooltip("interactivebackground")
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| {
             let result = match event.id().as_ref() {
@@ -70,7 +70,7 @@ pub fn setup_desktop_recovery(app: AppHandle) {
     thread::spawn(move || {
         let mut last_error: Option<String> = None;
         loop {
-            thread::sleep(Duration::from_secs(3));
+            thread::sleep(Duration::from_secs(1));
             match crate::commands::recover_desktop_host(&app) {
                 Ok(true) => last_error = None,
                 Ok(false) => {}
@@ -80,6 +80,9 @@ pub fn setup_desktop_recovery(app: AppHandle) {
                         last_error = Some(error);
                     }
                 }
+            }
+            if let Err(error) = crate::commands::apply_auto_calm_if_due(&app) {
+                eprintln!("Otomatik sakin moda geçilemedi: {error}");
             }
         }
     });

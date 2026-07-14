@@ -85,7 +85,7 @@ pub fn position_wallpaper(app: &AppHandle, selected_id: Option<&str>) -> Result<
     let final_inner = wallpaper.inner_position().map_err(monitor_error)?;
     let final_size = wallpaper.inner_size().map_err(monitor_error)?;
     eprintln!(
-        "Flowdesk wallpaper yerleşimi: hedef=({}, {}) {}x{}, gerçek=({}, {}) {}x{}",
+        "interactivebackground wallpaper yerleşimi: hedef=({}, {}) {}x{}, gerçek=({}, {}) {}x{}",
         target_position.x,
         target_position.y,
         selected.size().width,

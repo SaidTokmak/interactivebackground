@@ -1,7 +1,8 @@
 use std::sync::{
     Mutex,
-    atomic::{AtomicBool, Ordering},
+    atomic::{AtomicBool, AtomicU32, Ordering},
 };
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
@@ -31,6 +32,8 @@ pub struct DesktopHostState {
     interaction_mode: AtomicBool,
     fallback_mode: AtomicBool,
     workerw_desired: AtomicBool,
+    auto_calm_minutes: AtomicU32,
+    last_interaction_activity: Mutex<Option<Instant>>,
 }
 
 impl DesktopHostState {
@@ -42,6 +45,7 @@ impl DesktopHostState {
         self.interaction_mode.store(false, Ordering::Release);
         self.fallback_mode.store(false, Ordering::Release);
         self.workerw_desired.store(false, Ordering::Release);
+        *self.activity_lock()? = None;
 
         if let Some(wallpaper) = app.get_webview_window("wallpaper") {
             wallpaper.destroy().map_err(window_error)?;
@@ -69,7 +73,7 @@ impl DesktopHostState {
         *attachment = Some(platform::attach(app, monitor_id)?);
         self.interaction_mode.store(false, Ordering::Release);
         self.fallback_mode.store(false, Ordering::Release);
-        eprintln!("Flowdesk wallpaper WorkerW masaüstü katmanına bağlandı.");
+        eprintln!("interactivebackground wallpaper WorkerW masaüstü katmanına bağlandı.");
         Ok(())
     }
 
@@ -82,7 +86,7 @@ impl DesktopHostState {
 
         platform::detach(app, current)?;
         *attachment = None;
-        eprintln!("Flowdesk wallpaper WorkerW masaüstü katmanından ayrıldı.");
+        eprintln!("interactivebackground wallpaper WorkerW masaüstü katmanından ayrıldı.");
         Ok(())
     }
 
@@ -123,7 +127,8 @@ impl DesktopHostState {
         wallpaper.set_focus().map_err(window_error)?;
         self.interaction_mode.store(true, Ordering::Release);
         self.fallback_mode.store(false, Ordering::Release);
-        eprintln!("Flowdesk tıklanabilir etkileşim katmanına geçti.");
+        *self.activity_lock()? = Some(Instant::now());
+        eprintln!("interactivebackground tıklanabilir etkileşim katmanına geçti.");
         Ok(())
     }
 
@@ -131,11 +136,35 @@ impl DesktopHostState {
         let wallpaper = wallpaper_window(app)?;
         wallpaper.set_always_on_top(false).map_err(window_error)?;
         self.interaction_mode.store(false, Ordering::Release);
+        *self.activity_lock()? = None;
         Ok(())
     }
 
     pub fn is_interaction_mode(&self) -> bool {
         self.interaction_mode.load(Ordering::Acquire)
+    }
+
+    pub fn configure_auto_calm(&self, minutes: Option<u16>) {
+        self.auto_calm_minutes
+            .store(minutes.map(u32::from).unwrap_or(0), Ordering::Release);
+    }
+
+    pub fn record_interaction_activity(&self) -> Result<(), String> {
+        if self.is_interaction_mode() {
+            *self.activity_lock()? = Some(Instant::now());
+        }
+        Ok(())
+    }
+
+    pub fn auto_calm_due(&self) -> bool {
+        let minutes = self.auto_calm_minutes.load(Ordering::Acquire);
+        if minutes == 0 || !self.is_interaction_mode() {
+            return false;
+        }
+        self.activity_lock()
+            .ok()
+            .and_then(|activity| *activity)
+            .is_some_and(|last| last.elapsed() >= Duration::from_secs(u64::from(minutes) * 60))
     }
 
     pub fn set_fallback_mode(&self, active: bool) {
@@ -165,6 +194,12 @@ impl DesktopHostState {
         self.attachment
             .lock()
             .map_err(|_| "Masaüstü bağlantı durumu kilitlenemedi.".to_string())
+    }
+
+    fn activity_lock(&self) -> Result<std::sync::MutexGuard<'_, Option<Instant>>, String> {
+        self.last_interaction_activity
+            .lock()
+            .map_err(|_| "Etkileşim süresi kilitlenemedi.".to_string())
     }
 }
 
