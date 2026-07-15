@@ -90,3 +90,17 @@ export type DesktopHostStatus = {
   mode: "workerW" | "interaction" | "fallback" | "window";
   warning: string | null;
 };
+
+export type StarterLayout = "focus" | "planning" | "blank";
+
+export type OnboardingPreferences = {
+  language: LanguagePreference;
+  theme: ThemePreference;
+  monitorId: string | null;
+  backgroundPreset: BackgroundPreset;
+  starterLayout: StarterLayout;
+};
+
+export type OnboardingStatus = {
+  completed: boolean;
+};

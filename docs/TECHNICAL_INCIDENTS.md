@@ -485,3 +485,42 @@ beş görev ve koyu tema/monitör ayarları sayılarıyla birlikte korundu. Tabl
 kısıtının üç yeni türü içerdiği ve `foreign_key_check` sonucunda ihlal bulunmadığı
 salt okunur sorguyla teyit edildi. Aynı derlemeden NSIS ile Türkçe ve İngilizce
 MSI paketleri başarıyla üretildi.
+
+## FEATURE-011 — İlk kullanım ve kişiselleştirme akışı
+
+- Tarih: 16 Temmuz 2026
+- Durum: Uygulandı; migration, atomik kayıt, erişilebilirlik ve responsive arayüz düzeyinde doğrulandı
+- Final rapora dahil et: Evet
+
+Yeni kurulumlarda yönetim ekranının üzerinde dört adımlı bir onboarding akışı
+açılır. Kullanıcı dili, açık/koyu/sistem görünümünü, hedef monitörü, hazır arka
+planı ve Odak, Planlama veya Boş başlangıç düzenini seçer. Son adım global
+`Ctrl+Alt+Space` kısayolunu tanıtır. Windows ile başlatma varsayılan olarak
+kapalıdır ve yalnızca kullanıcının onboarding içindeki ayrı seçimiyle açılır.
+
+Kurulum tercihleri Rust tarafında tek SQLite transaction'ıyla uygulanır.
+`app_settings`, hedef monitörün `monitor_backgrounds` kaydı, başlangıç
+`desktop_widgets` satırları, gerekiyorsa `pomodoro_states` ve
+`app_meta.onboarding_v1` işareti birlikte yazılır. Herhangi bir adım başarısız
+olursa yarım tema veya yarım widget düzeni kalmaz. Seçilen başlangıç düzeninin o
+monitördeki mevcut widget'ların yerini alacağı arayüzde açıkça belirtilir.
+
+Mevcut kullanıcıların yeni sürümde onboarding'e zorlanmaması için ayrı
+`onboarding_migration_v1` işareti kullanılır. Kod ilk kez eski bir veritabanı
+görürse onboarding'i tamamlanmış sayar. Gerçekten yeni oluşturulan fakat kullanıcı
+henüz sihirbazı bitirmeden uygulamayı kapattığı veritabanında migration işareti
+bulunur, tamamlanma işareti bulunmaz; sonraki açılışta sihirbaz yeniden gösterilir.
+Rust testi bu iki durumu ve tamamlamanın bütün çalışma alanını kalıcı yazmasını
+ayrı ayrı doğrular.
+
+Tamamlanmış onboarding dişli düğmesinden tekrar açılabilir ve bu kez kapatma
+düğmesi sunulur. İlk zorunlu akışta kapatma düğmesi gösterilmez. Arayüz dialog
+semantiği, görünür klavye kontrolleri, iki dilde anlık metin değişimi ve 700 piksel
+dar görünüm dahil test edildi. 1280 piksel masaüstü görünümünde yatay taşma,
+seçimden sonra ise tarayıcı konsolunda hata bulunmadı.
+
+Release binary mevcut kullanıcı veritabanında tray'e gizli çalıştırıldı. Beş
+görev, yedi widget (iki günlük ayet dahil), bir Pomodoro durumu, Türkçe dil,
+koyu tema, yüzde 58 saydamlık ve hedef monitör seçimi değişmeden kaldı. Yalnızca
+iki onboarding migration işareti eklendi ve `foreign_key_check` ihlal vermedi.
+NSIS ile Türkçe ve İngilizce MSI paketleri aynı release binary'den üretildi.

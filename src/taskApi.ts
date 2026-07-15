@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AppSettings, BackgroundSettings, DesktopHostStatus, DesktopWidget, MonitorInfo, PomodoroAction, PomodoroState, Task, TaskStatus, WallpaperTemplate, WidgetKind, WidgetLayout } from "./types";
+import type { AppSettings, BackgroundSettings, DesktopHostStatus, DesktopWidget, MonitorInfo, OnboardingPreferences, OnboardingStatus, PomodoroAction, PomodoroState, Task, TaskStatus, WallpaperTemplate, WidgetKind, WidgetLayout } from "./types";
 
 let browserTasks: Task[] = [
   { id: 1, title: "Rust ownership notlarını bitir", status: "done", scheduledFor: "09:30" },
@@ -100,6 +100,44 @@ export async function getSettings(): Promise<AppSettings> {
 export async function updateSettings(settings: AppSettings): Promise<AppSettings> {
   if (isTauriRuntime()) return invoke<AppSettings>("update_settings", { settings });
   browserSettings = { ...settings };
+  return { ...browserSettings };
+}
+
+export async function getOnboardingStatus(): Promise<OnboardingStatus> {
+  if (isTauriRuntime()) return invoke<OnboardingStatus>("get_onboarding_status");
+  return { completed: browserOnboardingCompleted };
+}
+
+export async function completeOnboarding(preferences: OnboardingPreferences): Promise<AppSettings> {
+  if (isTauriRuntime()) return invoke<AppSettings>("complete_onboarding", { preferences });
+  browserSettings = {
+    ...browserSettings,
+    language: preferences.language,
+    theme: preferences.theme,
+    monitorId: preferences.monitorId,
+  };
+  const monitorKey = preferences.monitorId ?? "__primary__";
+  browserBackgrounds.set(monitorKey, {
+    monitorId: preferences.monitorId,
+    source: "preset",
+    preset: preferences.backgroundPreset,
+    customPath: null,
+    fit: "cover",
+    overlay: 16,
+    blur: 0,
+  });
+  browserWidgets = browserWidgets.filter((widget) => widget.monitorId !== preferences.monitorId);
+  const kinds: WidgetKind[] = preferences.starterLayout === "focus"
+    ? ["focus", "clock", "date"]
+    : preferences.starterLayout === "planning"
+      ? ["kanban", "pomodoro", "date"]
+      : [];
+  kinds.forEach((kind, sortOrder) => {
+    const id = Math.max(0, ...browserWidgets.map((widget) => widget.id)) + 1;
+    browserWidgets.push(defaultDesktopWidget(preferences.monitorId, kind, id, sortOrder));
+    if (kind === "pomodoro") browserPomodoros.set(id, defaultPomodoro(id));
+  });
+  browserOnboardingCompleted = true;
   return { ...browserSettings };
 }
 
@@ -233,6 +271,8 @@ let browserSettings: AppSettings = {
   theme: "system",
   language: "system",
 };
+
+let browserOnboardingCompleted = false;
 
 const browserBackgrounds = new Map<string, BackgroundSettings>();
 const browserWidgetLayouts = new Map<string, WidgetLayout>();

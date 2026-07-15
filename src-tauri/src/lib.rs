@@ -92,6 +92,8 @@ pub fn run() {
             commands::move_task,
             commands::get_settings,
             commands::update_settings,
+            commands::get_onboarding_status,
+            commands::complete_onboarding,
             commands::get_background_settings,
             commands::update_background_settings,
             commands::choose_background_image,

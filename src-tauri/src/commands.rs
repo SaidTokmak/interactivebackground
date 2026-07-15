@@ -13,8 +13,9 @@ use crate::{
     model::{Task, TaskStatus},
     monitors::MonitorInfo,
     settings::{
-        AppSettings, BackgroundSettings, BackgroundSource, DesktopWidget, PomodoroAction,
-        PomodoroState, WallpaperTemplate, WidgetKind, WidgetLayout,
+        AppSettings, BackgroundSettings, BackgroundSource, DesktopWidget, OnboardingPreferences,
+        OnboardingStatus, PomodoroAction, PomodoroState, WallpaperTemplate, WidgetKind,
+        WidgetLayout,
     },
     store::AppStore,
 };
@@ -110,6 +111,50 @@ pub fn update_settings(
         {
             eprintln!("Wallpaper yeni monitöre taşınamadı: {error}");
         }
+    }
+    Ok(settings)
+}
+
+#[tauri::command]
+pub fn get_onboarding_status(store: State<'_, AppStore>) -> Result<OnboardingStatus, String> {
+    store.onboarding_status()
+}
+
+#[tauri::command]
+pub fn complete_onboarding(
+    preferences: OnboardingPreferences,
+    store: State<'_, AppStore>,
+    desktop_host: State<'_, DesktopHostState>,
+    app: AppHandle,
+) -> Result<AppSettings, String> {
+    let previous = store.get_settings()?;
+    let settings = store.complete_onboarding(preferences)?;
+    desktop_host.configure_auto_calm(settings.auto_calm_minutes);
+    if previous.language != settings.language {
+        if let Err(error) =
+            crate::desktop_integration::update_tray_language(&app, settings.language)
+        {
+            eprintln!("Sistem tepsisi dili güncellenemedi: {error}");
+        }
+    }
+    notify_settings_change(&app);
+    notify_background_change(&app);
+    notify_desktop_widgets_change(&app);
+
+    let wallpaper_is_visible = app
+        .get_webview_window("wallpaper")
+        .and_then(|window| window.is_visible().ok())
+        .unwrap_or(false);
+    if wallpaper_is_visible && previous.monitor_id != settings.monitor_id {
+        let result = if settings.edit_mode {
+            desktop_host.enter_interaction_mode(&app, settings.monitor_id.as_deref())
+        } else {
+            activate_wallpaper_mode(&app, &desktop_host, settings.monitor_id.as_deref()).map(|_| ())
+        };
+        if let Err(error) = result {
+            eprintln!("Onboarding monitör seçimi uygulanamadı: {error}");
+        }
+        notify_desktop_host_change(&app);
     }
     Ok(settings)
 }

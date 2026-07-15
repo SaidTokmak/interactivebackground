@@ -122,6 +122,8 @@ doğrulanmış içerik korunur ve kullanıcı özelliği tamamen kapatabilir.
 
 ## Faz 7 — İlk kullanım ve kişiselleştirme akışı
 
+Durum: Tamamlandı — 16 Temmuz 2026
+
 - İlk açılışta dil ve tema seçimi.
 - Hedef monitör, arka plan, widget alanı ve global kısayol tanıtımı.
 - Autostart seçeneğinin açık rızayla sunulması; varsayılan olarak kapalı kalması.
@@ -151,5 +153,5 @@ doğrulanmış içerik korunur ve kullanıcı özelliği tamamen kapatabilir.
 
 ## Önerilen bir sonraki çalışma
 
-Faz 7'ye geçilmelidir: ilk kullanımda dil, tema, hedef monitör, arka plan ve
-başlangıç widget düzenini birlikte kuran kişiselleştirme akışı hazırlanmalıdır.
+Faz 8'e geçilmelidir: uygulama kimliği/veri taşıma planı kesinleştirilmeli,
+imzalı güncelleme ve GitHub Actions yayın hattı hazırlanmalıdır.

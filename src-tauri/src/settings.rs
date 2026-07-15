@@ -85,6 +85,30 @@ pub enum WidgetKind {
     DailyHadith,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum StarterLayout {
+    Focus,
+    Planning,
+    Blank,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OnboardingPreferences {
+    pub language: LanguagePreference,
+    pub theme: ThemePreference,
+    pub monitor_id: Option<String>,
+    pub background_preset: BackgroundPreset,
+    pub starter_layout: StarterLayout,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OnboardingStatus {
+    pub completed: bool,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DesktopWidget {

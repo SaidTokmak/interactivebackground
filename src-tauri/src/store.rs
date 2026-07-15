@@ -11,8 +11,9 @@ use crate::{
     model::{Task, TaskStatus},
     settings::{
         AppSettings, BackgroundFit, BackgroundPreset, BackgroundSettings, BackgroundSource,
-        DesktopWidget, LanguagePreference, PomodoroAction, PomodoroMode, PomodoroState,
-        ThemePreference, WallpaperTemplate, WidgetKind, WidgetLayout,
+        DesktopWidget, LanguagePreference, OnboardingPreferences, OnboardingStatus, PomodoroAction,
+        PomodoroMode, PomodoroState, StarterLayout, ThemePreference, WallpaperTemplate, WidgetKind,
+        WidgetLayout,
     },
 };
 
@@ -39,6 +40,15 @@ impl AppStore {
     }
 
     fn from_connection(mut connection: Connection) -> Result<Self, String> {
+        let existing_installation = connection
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'app_settings'",
+                [],
+                |_| Ok(()),
+            )
+            .optional()
+            .map_err(database_error)?
+            .is_some();
         connection
             .execute_batch(
                 "PRAGMA foreign_keys = ON;
@@ -136,6 +146,31 @@ impl AppStore {
         ensure_language_column(&connection)?;
         migrate_desktop_widget_kind_constraint(&mut connection)?;
         migrate_widget_layouts(&mut connection)?;
+        let onboarding_migrated = connection
+            .query_row(
+                "SELECT value FROM app_meta WHERE key = 'onboarding_migration_v1'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .map_err(database_error)?
+            .is_some();
+        if !onboarding_migrated {
+            if existing_installation {
+                connection
+                    .execute(
+                        "INSERT OR IGNORE INTO app_meta (key, value) VALUES ('onboarding_v1', 'done')",
+                        [],
+                    )
+                    .map_err(database_error)?;
+            }
+            connection
+                .execute(
+                    "INSERT INTO app_meta (key, value) VALUES ('onboarding_migration_v1', 'done')",
+                    [],
+                )
+                .map_err(database_error)?;
+        }
 
         let store = Self {
             connection: Mutex::new(connection),
@@ -292,6 +327,108 @@ impl AppStore {
                 ],
             )
             .map_err(database_error)?;
+        Ok(settings)
+    }
+
+    pub fn onboarding_status(&self) -> Result<OnboardingStatus, String> {
+        let connection = self.lock_connection()?;
+        let completed = connection
+            .query_row(
+                "SELECT value FROM app_meta WHERE key = 'onboarding_v1'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .map_err(database_error)?
+            .is_some_and(|value| value == "done");
+        Ok(OnboardingStatus { completed })
+    }
+
+    pub fn complete_onboarding(
+        &self,
+        preferences: OnboardingPreferences,
+    ) -> Result<AppSettings, String> {
+        let mut connection = self.lock_connection()?;
+        let mut settings = connection
+            .query_row(
+                "SELECT template, opacity, edit_mode, monitor_id, auto_calm_minutes, theme_mode,
+                        language
+                 FROM app_settings WHERE id = 1",
+                [],
+                settings_from_row,
+            )
+            .map_err(database_error)?;
+        settings.language = preferences.language;
+        settings.theme = preferences.theme;
+        settings.monitor_id = preferences.monitor_id.clone();
+        settings = settings.validate()?;
+
+        let monitor_key = background_monitor_key(preferences.monitor_id.as_deref()).to_string();
+        let widget_kinds: &[WidgetKind] = match preferences.starter_layout {
+            StarterLayout::Focus => &[WidgetKind::Focus, WidgetKind::Clock, WidgetKind::Date],
+            StarterLayout::Planning => {
+                &[WidgetKind::Kanban, WidgetKind::Pomodoro, WidgetKind::Date]
+            }
+            StarterLayout::Blank => &[],
+        };
+
+        let transaction = connection.transaction().map_err(database_error)?;
+        transaction
+            .execute(
+                "UPDATE app_settings
+                 SET template = ?1, opacity = ?2, edit_mode = ?3, monitor_id = ?4,
+                     auto_calm_minutes = ?5, theme_mode = ?6, language = ?7
+                 WHERE id = 1",
+                params![
+                    settings.template.as_database_value(),
+                    i64::from(settings.opacity),
+                    settings.edit_mode,
+                    settings.monitor_id,
+                    settings.auto_calm_minutes,
+                    settings.theme.as_database_value(),
+                    settings.language.as_database_value(),
+                ],
+            )
+            .map_err(database_error)?;
+        transaction
+            .execute(
+                "INSERT INTO monitor_backgrounds
+                    (monitor_key, source, preset, custom_path, fit, overlay, blur)
+                 VALUES (?1, 'preset', ?2, NULL, 'cover', 16, 0)
+                 ON CONFLICT(monitor_key) DO UPDATE SET
+                    source = 'preset', preset = excluded.preset, custom_path = NULL,
+                    fit = 'cover', overlay = 16, blur = 0",
+                params![
+                    monitor_key,
+                    preferences.background_preset.as_database_value()
+                ],
+            )
+            .map_err(database_error)?;
+        transaction
+            .execute(
+                "DELETE FROM desktop_widgets WHERE monitor_key = ?1",
+                [&monitor_key],
+            )
+            .map_err(database_error)?;
+        for (sort_order, kind) in widget_kinds.iter().copied().enumerate() {
+            let mut widget = DesktopWidget::defaults_for(
+                preferences.monitor_id.clone(),
+                kind,
+                sort_order as i64,
+            )
+            .validate()?;
+            insert_desktop_widget(&transaction, &monitor_key, &widget)?;
+            widget.id = transaction.last_insert_rowid();
+            ensure_pomodoro_state(&transaction, &widget)?;
+        }
+        transaction
+            .execute(
+                "INSERT INTO app_meta (key, value) VALUES ('onboarding_v1', 'done')
+                 ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                [],
+            )
+            .map_err(database_error)?;
+        transaction.commit().map_err(database_error)?;
         Ok(settings)
     }
 
@@ -1318,6 +1455,71 @@ mod tests {
     }
 
     #[test]
+    fn completes_onboarding_as_one_persistent_workspace_transaction() {
+        let store = AppStore::in_memory().unwrap();
+        assert!(!store.onboarding_status().unwrap().completed);
+
+        let settings = store
+            .complete_onboarding(OnboardingPreferences {
+                language: LanguagePreference::Tr,
+                theme: ThemePreference::Dark,
+                monitor_id: Some("display-two".into()),
+                background_preset: BackgroundPreset::Midnight,
+                starter_layout: StarterLayout::Planning,
+            })
+            .unwrap();
+        assert_eq!(settings.language, LanguagePreference::Tr);
+        assert_eq!(settings.theme, ThemePreference::Dark);
+        assert_eq!(settings.monitor_id.as_deref(), Some("display-two"));
+        assert!(store.onboarding_status().unwrap().completed);
+        assert_eq!(
+            store
+                .get_background_settings(Some("display-two".into()))
+                .unwrap()
+                .preset,
+            BackgroundPreset::Midnight
+        );
+
+        let widgets = store
+            .list_desktop_widgets(Some("display-two".into()))
+            .unwrap();
+        assert_eq!(
+            widgets.iter().map(|widget| widget.kind).collect::<Vec<_>>(),
+            vec![WidgetKind::Kanban, WidgetKind::Pomodoro, WidgetKind::Date]
+        );
+        assert_eq!(
+            store
+                .get_pomodoro_state(widgets[1].id)
+                .unwrap()
+                .remaining_seconds,
+            1_500
+        );
+    }
+
+    #[test]
+    fn keeps_an_unfinished_fresh_onboarding_pending_after_restart() {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let database_path = std::env::temp_dir().join(format!(
+            "interactivebackground-onboarding-{}-{suffix}.db",
+            std::process::id()
+        ));
+
+        {
+            let store = AppStore::open(&database_path).unwrap();
+            assert!(!store.onboarding_status().unwrap().completed);
+        }
+        {
+            let store = AppStore::open(&database_path).unwrap();
+            assert!(!store.onboarding_status().unwrap().completed);
+        }
+
+        std::fs::remove_file(database_path).unwrap();
+    }
+
+    #[test]
     fn migrates_an_existing_settings_table_with_monitor_selection() {
         let connection = Connection::open_in_memory().unwrap();
         connection
@@ -1334,6 +1536,7 @@ mod tests {
             .unwrap();
 
         let store = AppStore::from_connection(connection).unwrap();
+        assert!(store.onboarding_status().unwrap().completed);
         assert_eq!(store.get_settings().unwrap().monitor_id, None);
         assert_eq!(store.get_settings().unwrap().auto_calm_minutes, Some(5));
         assert_eq!(store.get_settings().unwrap().theme, ThemePreference::System);

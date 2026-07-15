@@ -56,5 +56,5 @@ export function useSettings() {
     }
   }
 
-  return { settings, settingsError, saveSettings };
+  return { settings, settingsError, saveSettings, refreshSettings };
 }

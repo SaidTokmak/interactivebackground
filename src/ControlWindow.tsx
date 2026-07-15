@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
-import { chooseBackgroundImage as openBackgroundImage, getDesktopHostStatus, hideWallpaper, isTauriRuntime, showWallpaper } from "./taskApi";
-import type { BackgroundFit, BackgroundPreset, DesktopHostStatus, LanguagePreference, ThemePreference, WidgetKind } from "./types";
+import { chooseBackgroundImage as openBackgroundImage, completeOnboarding, getDesktopHostStatus, getOnboardingStatus, hideWallpaper, isTauriRuntime, showWallpaper } from "./taskApi";
+import type { BackgroundFit, BackgroundPreset, DesktopHostStatus, LanguagePreference, OnboardingPreferences, ThemePreference, WidgetKind } from "./types";
 import { useI18n } from "./i18n";
 import type { TranslationKey } from "./i18n/locales/en";
 import { useBackgroundSettings } from "./useBackgroundSettings";
@@ -13,10 +13,11 @@ import { useTheme } from "./useTheme";
 import { useDesktopWidgets } from "./useDesktopWidgets";
 import { WallpaperSurface } from "./WallpaperSurface";
 import appIcon from "./assets/interactivebackground-icon.png";
+import { OnboardingWizard } from "./OnboardingWizard";
 
 export function ControlWindow() {
   const { tasks, error: taskError, addTask, toggleTask, moveTask, removeTask } = useTasks();
-  const { settings, settingsError, saveSettings } = useSettings();
+  const { settings, settingsError, saveSettings, refreshSettings } = useSettings();
   const { monitors, monitorError } = useMonitors();
   const { background, backgroundError, saveBackground } = useBackgroundSettings(settings.monitorId);
   const { widgets, pomodoros, widgetError, addWidget, saveWidget, duplicateWidget, removeWidget, moveWidget, controlPomodoro, savePomodoroDurations } = useDesktopWidgets(settings.monitorId, settings.language);
@@ -29,6 +30,8 @@ export function ControlWindow() {
   const [integrationError, setIntegrationError] = useState("");
   const [overlayDraft, setOverlayDraft] = useState(background.overlay);
   const [blurDraft, setBlurDraft] = useState(background.blur);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [onboardingCompleted, setOnboardingCompleted] = useState(false);
 
   useTheme(settings.theme);
   const { t, formatDate, localizeError } = useI18n(settings.language);
@@ -36,6 +39,14 @@ export function ControlWindow() {
   useEffect(() => setOpacityDraft(settings.opacity), [settings.opacity]);
   useEffect(() => setOverlayDraft(background.overlay), [background.overlay]);
   useEffect(() => setBlurDraft(background.blur), [background.blur]);
+  useEffect(() => {
+    void getOnboardingStatus()
+      .then((status) => {
+        setOnboardingCompleted(status.completed);
+        setOnboardingOpen(!status.completed);
+      })
+      .catch((reason) => setIntegrationError(String(reason)));
+  }, []);
   useEffect(() => {
     if (!isTauriRuntime()) return;
     void isEnabled()
@@ -108,6 +119,25 @@ export function ControlWindow() {
     }
   }
 
+  async function finishOnboarding(preferences: OnboardingPreferences, startWithWindows: boolean) {
+    await completeOnboarding(preferences);
+    setOnboardingCompleted(true);
+    setOnboardingOpen(false);
+    await refreshSettings();
+    if (!isTauriRuntime()) {
+      setAutoStartEnabled(startWithWindows);
+      return;
+    }
+    try {
+      if (startWithWindows) await enable();
+      else await disable();
+      setAutoStartEnabled(await isEnabled());
+      setIntegrationError("");
+    } catch (reason) {
+      setIntegrationError(String(reason));
+    }
+  }
+
   async function chooseBackgroundImage() {
     try {
       const managedPath = await openBackgroundImage(t("background.imageFilter"));
@@ -135,7 +165,7 @@ export function ControlWindow() {
           <button className="header-button" onClick={() => void toggleWallpaper()}>
             {desktopStatus && desktopStatus.mode !== "window" ? t("header.closeDesktop") : t("header.openDesktop")}
           </button>
-          <button className="icon-button" aria-label={t("header.openSettings")}>⚙</button>
+          <button className="icon-button" onClick={() => setOnboardingOpen(true)} aria-label={t("onboarding.reopen")}>⚙</button>
         </div>
       </header>
 
@@ -344,6 +374,15 @@ export function ControlWindow() {
           </div>
         </section>
       </div>
+      {onboardingOpen && <OnboardingWizard
+        settings={settings}
+        monitors={monitors}
+        autoStartEnabled={autoStartEnabled}
+        initialBackgroundPreset={background.preset}
+        canDismiss={onboardingCompleted}
+        onDismiss={() => setOnboardingOpen(false)}
+        onComplete={finishOnboarding}
+      />}
     </main>
   );
 }

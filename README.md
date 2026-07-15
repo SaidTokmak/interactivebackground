@@ -40,6 +40,8 @@ interactivebackground, masaüstünü gerektiğinde sakin bir görev alanına dö
   tamamlanma bildirimi
 - Yerel tarihe göre değişen, çevrimdışı çalışan ve kaynağını kart üzerinde
   gösteren günün şiiri, ayeti ve hadisi widget'ları
+- İlk açılışta dil, görünüm, monitör, arka plan ve başlangıç widget düzenini
+  kuran; ayarlardan yeniden açılabilen dört adımlı kişiselleştirme akışı
 
 ## Geliştirme
 
@@ -89,8 +91,8 @@ belgesinde](docs/CONTENT_SOURCES.md) tutulur.
 
 ## Sıradaki adımlar
 
-1. İlk kullanım ve kişiselleştirme akışını geliştirmek
-2. İmzalı yayın ve otomatik güncelleme hattını hazırlamak
+1. İmzalı yayın ve otomatik güncelleme hattını hazırlamak
+2. Legacy uygulama kimliği ve veritabanı için veri taşıma planını uygulamak
 
 ## Pencere mimarisi
 
