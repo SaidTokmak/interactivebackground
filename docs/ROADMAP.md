@@ -6,6 +6,8 @@ bir temel oluşturacağı şekilde düzenlenmiştir.
 
 ## Faz 1 — Tema sistemi ve tasarım altyapısı
 
+Durum: Tamamlandı — 15 Temmuz 2026
+
 İlk sırada arayüzün tamamını ortak tasarım token'larına geçirmek vardır. Bu
 sayede daha sonra eklenecek ayar, widget ve karşılama ekranları aynı tema
 sistemini kullanabilir.

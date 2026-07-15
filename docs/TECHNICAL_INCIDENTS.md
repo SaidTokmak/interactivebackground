@@ -237,3 +237,36 @@ kırık beyaz dış şerit, lacivert iç kıvrım ve mat mercan vurgu kullanıld
 parlaklıklar azaltıldı. 32×32 görev çubuğu çıktısı ayrıca görsel olarak kontrol
 edildi. Seçilen kaynak Tauri ikonlarının, uygulama içi marka görselinin ve
 installer varlıklarının tamamında eski tasarımın yerini aldı.
+
+## FEATURE-005 — Kalıcı sistem/açık/koyu tema desteği
+
+- Tarih: 15 Temmuz 2026
+- Durum: Uygulandı ve görsel olarak doğrulandı
+- Final rapora dahil et: Evet
+
+`AppSettings` modeline `system`, `light` ve `dark` değerlerini taşıyan tema
+tercihi eklendi. Değer SQLite `app_settings.theme_mode` sütununda tutulur; eski
+veritabanları açılırken sütun varsayılan `system` değeriyle otomatik eklenir.
+Mevcut `settings-changed` olayı sayesinde yönetim ve wallpaper pencereleri aynı
+tercihi yeniden başlatma gerektirmeden uygular.
+
+Frontend ilk frame'de işletim sisteminin `prefers-color-scheme` değerini
+uygulayarak tema parlamasını önler. Kalıcı tercih yüklendikten sonra özel açık
+veya koyu tema etkinleştirilir; `system` seçiliyken işletim sistemi değişiklik
+olayı canlı dinlenir. Tema tercihi, çözümlenen görünüm ve `color-scheme`
+değerleri document kökünde birlikte tutulur.
+
+Arayüz renkleri ortak CSS token'larına taşındı. Açık görünüm kırık beyaz,
+grafit ve gece laciverti; koyu görünüm ise koyu grafit, lacivert vurgu ve mat
+mercan ilerleme rengi kullanır. Yönetim yüzeyleri, formlar, kartlar, seçim
+alanları, wallpaper widget'ı ve düzenleme kontrolleri iki tema için ayrı
+kontrast değerleri alır. `prefers-reduced-motion` tercihi de geçişleri devre
+dışı bırakır.
+
+Legacy tablo migration testi varsayılan sistem temasını, ayar testi koyu tema
+yazma/okumayı ve veritabanını yeniden açma testi kalıcılığı doğrular. Açık,
+koyu ve sistem görünümleri yerel arayüzde görsel olarak kontrol edildi; tema
+seçicinin değerleri, hesaplanan CSS renkleri ve tarayıcı hata kayıtları ayrıca
+doğrulandı. Release binary `--hidden` ile gerçek kullanıcı veritabanında
+çalıştırıldı; `theme_mode` sütununun `system` varsayılanıyla eklendiği ve mevcut
+ayarların değişmeden kaldığı salt okunur SQLite sorgusuyla teyit edildi.

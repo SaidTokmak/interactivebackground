@@ -6,6 +6,7 @@ import type { DesktopHostStatus } from "./types";
 import { useMonitors } from "./useMonitors";
 import { useSettings } from "./useSettings";
 import { useTasks } from "./useTasks";
+import { useTheme } from "./useTheme";
 import { WallpaperSurface } from "./WallpaperSurface";
 import appIcon from "./assets/interactivebackground-icon.png";
 
@@ -20,6 +21,8 @@ export function ControlWindow() {
   const [desktopStatus, setDesktopStatus] = useState<DesktopHostStatus | null>(null);
   const [autoStartEnabled, setAutoStartEnabled] = useState(false);
   const [integrationError, setIntegrationError] = useState("");
+
+  useTheme(settings.theme);
 
   useEffect(() => setOpacityDraft(settings.opacity), [settings.opacity]);
   useEffect(() => {
@@ -163,6 +166,20 @@ export function ControlWindow() {
           <WallpaperSurface tasks={tasks} template={settings.template} editMode={settings.editMode} opacity={opacityDraft} onToggle={(id) => void toggleTask(id)} onMove={(id, status) => void moveTask(id, status)} />
 
           <div className="preview-controls">
+            <label className="monitor-control theme-control">
+              <span>Görünüm</span>
+              <select
+                value={settings.theme}
+                onChange={(event) => void saveSettings({
+                  ...settings,
+                  theme: event.target.value as import("./types").ThemePreference,
+                })}
+              >
+                <option value="system">Sistem</option>
+                <option value="light">Açık</option>
+                <option value="dark">Koyu</option>
+              </select>
+            </label>
             <label className="switch-row">
               <input type="checkbox" checked={settings.editMode} onChange={(event) => void saveSettings({ ...settings, editMode: event.target.checked })} />
               <span><b>Düzenleme modu</b><small>{settings.editMode ? "Tıklanabilir overlay açık" : "İkonların arkasında sakin görünüm"}</small></span>

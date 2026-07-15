@@ -7,6 +7,14 @@ pub enum WallpaperTemplate {
     Kanban,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ThemePreference {
+    System,
+    Light,
+    Dark,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -15,6 +23,7 @@ pub struct AppSettings {
     pub edit_mode: bool,
     pub monitor_id: Option<String>,
     pub auto_calm_minutes: Option<u16>,
+    pub theme: ThemePreference,
 }
 
 impl AppSettings {
@@ -45,6 +54,25 @@ impl WallpaperTemplate {
             "focus" => Ok(Self::Focus),
             "kanban" => Ok(Self::Kanban),
             other => Err(format!("Bilinmeyen wallpaper şablonu: {other}")),
+        }
+    }
+}
+
+impl ThemePreference {
+    pub fn as_database_value(self) -> &'static str {
+        match self {
+            Self::System => "system",
+            Self::Light => "light",
+            Self::Dark => "dark",
+        }
+    }
+
+    pub fn from_database_value(value: &str) -> Result<Self, String> {
+        match value {
+            "system" => Ok(Self::System),
+            "light" => Ok(Self::Light),
+            "dark" => Ok(Self::Dark),
+            other => Err(format!("Bilinmeyen tema tercihi: {other}")),
         }
     }
 }

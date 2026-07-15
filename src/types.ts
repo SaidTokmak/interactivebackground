@@ -8,6 +8,7 @@ export type Task = {
 };
 
 export type WallpaperTemplate = "focus" | "kanban";
+export type ThemePreference = "system" | "light" | "dark";
 
 export type AppSettings = {
   template: WallpaperTemplate;
@@ -15,6 +16,7 @@ export type AppSettings = {
   editMode: boolean;
   monitorId: string | null;
   autoCalmMinutes: number | null;
+  theme: ThemePreference;
 };
 
 export type MonitorInfo = {

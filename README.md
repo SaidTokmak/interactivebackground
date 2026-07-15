@@ -24,6 +24,7 @@ interactivebackground, masaüstünü gerektiğinde sakin bir görev alanına dö
 - Kullanıcı aktivitesine göre ayarlanabilir otomatik sakin moda dönüş
 - Windows oturum açılışında isteğe bağlı ve tray'e gizli otomatik başlatma
 - Uygulama arayüzü, executable ve installer genelinde ortak marka ikonu
+- Sistem temasını canlı izleyen kalıcı açık/koyu görünüm seçimi
 
 ## Geliştirme
 
@@ -71,11 +72,10 @@ yer alır.
 
 ## Sıradaki adımlar
 
-1. Sistem/açık/koyu tema altyapısını hazırlamak
-2. Türkçe/İngilizce yerelleştirme ve dil seçimini eklemek
-3. Kullanıcı arka planları ve hazır tema koleksiyonunu hazırlamak
-4. Sınırlandırılmış sürüklenebilir widget yerleşim motorunu geliştirmek
-5. Pomodoro ve kaynaklı günlük içerik widget'larını eklemek
+1. Türkçe/İngilizce yerelleştirme ve dil seçimini eklemek
+2. Kullanıcı arka planları ve hazır tema koleksiyonunu hazırlamak
+3. Sınırlandırılmış sürüklenebilir widget yerleşim motorunu geliştirmek
+4. Pomodoro ve kaynaklı günlük içerik widget'larını eklemek
 
 ## Pencere mimarisi
 

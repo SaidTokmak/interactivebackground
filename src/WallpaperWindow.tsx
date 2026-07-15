@@ -2,11 +2,14 @@ import { useEffect } from "react";
 import { hideWallpaper, isTauriRuntime, recordInteractionActivity } from "./taskApi";
 import { useSettings } from "./useSettings";
 import { useTasks } from "./useTasks";
+import { useTheme } from "./useTheme";
 import { WallpaperSurface } from "./WallpaperSurface";
 
 export function WallpaperWindow() {
   const { tasks, error, toggleTask, moveTask } = useTasks();
   const { settings, settingsError, saveSettings } = useSettings();
+
+  useTheme(settings.theme);
 
   useEffect(() => {
     if (!settings.editMode || !isTauriRuntime()) return;

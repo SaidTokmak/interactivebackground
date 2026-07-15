@@ -4,7 +4,7 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 
 use crate::{
     model::{Task, TaskStatus},
-    settings::{AppSettings, WallpaperTemplate},
+    settings::{AppSettings, ThemePreference, WallpaperTemplate},
 };
 
 /// SQLite bağlantısını Tauri'nin global state sistemi içinde tutar.
@@ -47,7 +47,9 @@ impl AppStore {
                      opacity   INTEGER NOT NULL CHECK (opacity BETWEEN 40 AND 100),
                      edit_mode INTEGER NOT NULL CHECK (edit_mode IN (0, 1)),
                      monitor_id TEXT,
-                     auto_calm_minutes INTEGER DEFAULT 5
+                     auto_calm_minutes INTEGER DEFAULT 5,
+                     theme_mode TEXT NOT NULL DEFAULT 'system'
+                         CHECK (theme_mode IN ('system', 'light', 'dark'))
                  );
 
                  INSERT OR IGNORE INTO app_settings (id, template, opacity, edit_mode)
@@ -59,6 +61,7 @@ impl AppStore {
         // Eski veritabanlarını ileri taşımak için sütunu ayrıca kontrol ederiz.
         ensure_monitor_column(&connection)?;
         ensure_auto_calm_column(&connection)?;
+        ensure_theme_column(&connection)?;
 
         let store = Self {
             connection: Mutex::new(connection),
@@ -186,7 +189,7 @@ impl AppStore {
         let connection = self.lock_connection()?;
         connection
             .query_row(
-                "SELECT template, opacity, edit_mode, monitor_id, auto_calm_minutes
+                "SELECT template, opacity, edit_mode, monitor_id, auto_calm_minutes, theme_mode
                  FROM app_settings WHERE id = 1",
                 [],
                 settings_from_row,
@@ -201,7 +204,7 @@ impl AppStore {
             .execute(
                 "UPDATE app_settings
                  SET template = ?1, opacity = ?2, edit_mode = ?3, monitor_id = ?4,
-                     auto_calm_minutes = ?5
+                     auto_calm_minutes = ?5, theme_mode = ?6
                  WHERE id = 1",
                 params![
                     settings.template.as_database_value(),
@@ -209,6 +212,7 @@ impl AppStore {
                     settings.edit_mode,
                     settings.monitor_id,
                     settings.auto_calm_minutes,
+                    settings.theme.as_database_value(),
                 ],
             )
             .map_err(database_error)?;
@@ -270,12 +274,22 @@ fn settings_from_row(row: &Row<'_>) -> rusqlite::Result<AppSettings> {
         )
     })?;
 
+    let theme: String = row.get(5)?;
+    let theme = ThemePreference::from_database_value(&theme).map_err(|message| {
+        rusqlite::Error::FromSqlConversionFailure(
+            5,
+            rusqlite::types::Type::Text,
+            std::io::Error::new(std::io::ErrorKind::InvalidData, message).into(),
+        )
+    })?;
+
     Ok(AppSettings {
         template,
         opacity,
         edit_mode: row.get(2)?,
         monitor_id: row.get(3)?,
         auto_calm_minutes: row.get(4)?,
+        theme,
     })
 }
 
@@ -311,6 +325,27 @@ fn ensure_auto_calm_column(connection: &Connection) -> Result<(), String> {
         connection
             .execute(
                 "ALTER TABLE app_settings ADD COLUMN auto_calm_minutes INTEGER DEFAULT 5",
+                [],
+            )
+            .map_err(database_error)?;
+    }
+    Ok(())
+}
+
+fn ensure_theme_column(connection: &Connection) -> Result<(), String> {
+    let mut statement = connection
+        .prepare("PRAGMA table_info(app_settings)")
+        .map_err(database_error)?;
+    let column_names = statement
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(database_error)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(database_error)?;
+
+    if !column_names.iter().any(|name| name == "theme_mode") {
+        connection
+            .execute(
+                "ALTER TABLE app_settings ADD COLUMN theme_mode TEXT NOT NULL DEFAULT 'system'",
                 [],
             )
             .map_err(database_error)?;
@@ -394,9 +429,11 @@ mod tests {
                 edit_mode: true,
                 monitor_id: Some("monitor:0:0:1920x1080".into()),
                 auto_calm_minutes: Some(5),
+                theme: ThemePreference::Dark,
             })
             .unwrap();
         assert_eq!(updated.template, WallpaperTemplate::Kanban);
+        assert_eq!(updated.theme, ThemePreference::Dark);
         assert_eq!(store.get_settings().unwrap(), updated);
 
         let error = store
@@ -427,6 +464,7 @@ mod tests {
         let store = AppStore::from_connection(connection).unwrap();
         assert_eq!(store.get_settings().unwrap().monitor_id, None);
         assert_eq!(store.get_settings().unwrap().auto_calm_minutes, Some(5));
+        assert_eq!(store.get_settings().unwrap().theme, ThemePreference::System);
 
         let updated = store
             .update_settings(AppSettings {
@@ -435,6 +473,7 @@ mod tests {
                 edit_mode: false,
                 monitor_id: Some("display:0:0:2560x1440".into()),
                 auto_calm_minutes: Some(10),
+                theme: ThemePreference::Light,
             })
             .unwrap();
         assert_eq!(store.get_settings().unwrap().monitor_id, updated.monitor_id);
@@ -466,6 +505,7 @@ mod tests {
                     edit_mode: true,
                     monitor_id: Some("monitor:0:0:1920x1080".into()),
                     auto_calm_minutes: Some(15),
+                    theme: ThemePreference::Dark,
                 })
                 .unwrap();
         }
@@ -486,6 +526,7 @@ mod tests {
                     edit_mode: true,
                     monitor_id: Some("monitor:0:0:1920x1080".into()),
                     auto_calm_minutes: Some(15),
+                    theme: ThemePreference::Dark,
                 }
             );
         }
