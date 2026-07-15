@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import type { BackgroundSettings, DesktopWidget, LanguagePreference, PomodoroAction, PomodoroState, Task, TaskStatus, WidgetKind } from "./types";
 import appIcon from "./assets/interactivebackground-icon.png";
 import { useI18n } from "./i18n";
 import type { TranslationKey } from "./i18n/locales/en";
+import { getDailyContent } from "./dailyContent";
 import { isTauriRuntime } from "./taskApi";
 
 type Props = {
@@ -158,6 +160,22 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
     if (widget.kind === "clock") {
       return <div className="clock-body"><strong>{formatClock(now, language)}</strong><span>{formatDate(now, "long")}</span></div>;
     }
+    if (widget.kind === "dailyPoem" || widget.kind === "dailyVerse" || widget.kind === "dailyHadith") {
+      const content = getDailyContent(widget.kind, language, now);
+      return <div className={`daily-content-body ${widget.kind === "dailyHadith" ? "daily-hadith-body" : ""}`}>
+        {content.original && <p className="daily-original" dir="rtl" lang="ar">{content.original}</p>}
+        <blockquote className={widget.kind === "dailyHadith" ? "daily-original" : ""} dir={widget.kind === "dailyHadith" ? "rtl" : undefined} lang={widget.kind === "dailyHadith" ? "ar" : undefined}>{content.text}</blockquote>
+        {content.note && <p className="daily-note">{content.note}</p>}
+        <div className="daily-source-row">
+          <span><b>{content.attribution}</b>{content.reference && ` · ${content.reference}`}</span>
+          <div className="daily-source-actions">
+            {content.originalSourceUrl && <button type="button" onClick={() => void openExternal(content.originalSourceUrl!)}>{t("daily.arabicSource")}</button>}
+            <button type="button" onClick={() => void openExternal(content.sourceUrl)}>{t("daily.source")}</button>
+          </div>
+        </div>
+        <small className="daily-license">{content.license}</small>
+      </div>;
+    }
     return <div className="date-body"><strong>{now.toLocaleDateString(resolveLocale(language), { day: "2-digit" })}</strong><div><span>{now.toLocaleDateString(resolveLocale(language), { month: "long" })}</span><b>{now.toLocaleDateString(resolveLocale(language), { weekday: "long" })}</b></div></div>;
   }
 
@@ -245,6 +263,7 @@ function widgetSizeLimits(kind: WidgetKind, bounds: Pick<DOMRect, "width" | "hei
   const values: Record<WidgetKind, [number, number, number, number, number, number]> = {
     focus: [0.18, 0.20, 0.78, 0.78, 280, 250], kanban: [0.18, 0.20, 0.78, 0.78, 280, 250],
     pomodoro: [0.18, 0.24, 0.50, 0.62, 230, 220], clock: [0.12, 0.14, 0.46, 0.42, 180, 120], date: [0.16, 0.14, 0.52, 0.42, 200, 120],
+    dailyPoem: [0.20, 0.24, 0.58, 0.66, 270, 230], dailyVerse: [0.22, 0.26, 0.62, 0.70, 290, 250], dailyHadith: [0.22, 0.24, 0.60, 0.64, 290, 230],
   };
   const [minWidth, minHeight, maxWidth, maxHeight, minPixelsX, minPixelsY] = values[kind];
   return { minWidth: Math.min(maxWidth, Math.max(minWidth, minPixelsX / bounds.width)), minHeight: Math.min(maxHeight, Math.max(minHeight, minPixelsY / bounds.height)), maxWidth, maxHeight };
@@ -253,6 +272,7 @@ function widgetSizeLimits(kind: WidgetKind, bounds: Pick<DOMRect, "width" | "hei
 function widgetTitle(kind: WidgetKind, t: (key: TranslationKey) => string) {
   const keys: Record<WidgetKind, TranslationKey> = {
     focus: "widget.focusTitle", kanban: "widget.boardTitle", pomodoro: "widget.pomodoroTitle", clock: "widget.clockTitle", date: "widget.dateTitle",
+    dailyPoem: "widget.dailyPoemTitle", dailyVerse: "widget.dailyVerseTitle", dailyHadith: "widget.dailyHadithTitle",
   };
   return t(keys[kind]);
 }
@@ -266,6 +286,10 @@ function pomodoroRemaining(state: PomodoroState | undefined, now: Date) {
 function formatDuration(seconds: number) { return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`; }
 function resolveLocale(language: LanguagePreference) { return language === "system" ? navigator.language : language === "tr" ? "tr-TR" : "en-US"; }
 function formatClock(date: Date, language: LanguagePreference) { return new Intl.DateTimeFormat(resolveLocale(language), { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(date); }
+async function openExternal(url: string) {
+  if (isTauriRuntime()) await openUrl(url);
+  else window.open(url, "_blank", "noopener,noreferrer");
+}
 function snap(value: number, grid: number) { return Math.round(value / grid) * grid; }
 function clamp(value: number, minimum: number, maximum: number) { return Math.min(maximum, Math.max(minimum, value)); }
 function round(value: number) { return Math.round(value * 1_000_000) / 1_000_000; }

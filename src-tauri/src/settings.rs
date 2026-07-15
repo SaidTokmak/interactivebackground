@@ -80,6 +80,9 @@ pub enum WidgetKind {
     Pomodoro,
     Clock,
     Date,
+    DailyPoem,
+    DailyVerse,
+    DailyHadith,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -233,6 +236,9 @@ impl WidgetKind {
             Self::Pomodoro => "pomodoro",
             Self::Clock => "clock",
             Self::Date => "date",
+            Self::DailyPoem => "daily_poem",
+            Self::DailyVerse => "daily_verse",
+            Self::DailyHadith => "daily_hadith",
         }
     }
 
@@ -243,6 +249,9 @@ impl WidgetKind {
             "pomodoro" => Ok(Self::Pomodoro),
             "clock" => Ok(Self::Clock),
             "date" => Ok(Self::Date),
+            "daily_poem" => Ok(Self::DailyPoem),
+            "daily_verse" => Ok(Self::DailyVerse),
+            "daily_hadith" => Ok(Self::DailyHadith),
             other => Err(format!("Bilinmeyen widget türü: {other}")),
         }
     }
@@ -254,6 +263,9 @@ impl WidgetKind {
             Self::Pomodoro => (0.05, 0.12, 0.25, 0.34),
             Self::Clock => (0.05, 0.54, 0.22, 0.20),
             Self::Date => (0.30, 0.72, 0.25, 0.18),
+            Self::DailyPoem => (0.28, 0.08, 0.30, 0.34),
+            Self::DailyVerse => (0.24, 0.48, 0.32, 0.34),
+            Self::DailyHadith => (0.03, 0.58, 0.28, 0.30),
         }
     }
 
@@ -263,6 +275,9 @@ impl WidgetKind {
             Self::Pomodoro => ((0.18, 0.24), (0.50, 0.62)),
             Self::Clock => ((0.12, 0.14), (0.46, 0.42)),
             Self::Date => ((0.16, 0.14), (0.52, 0.42)),
+            Self::DailyPoem => ((0.20, 0.24), (0.58, 0.66)),
+            Self::DailyVerse => ((0.22, 0.26), (0.62, 0.70)),
+            Self::DailyHadith => ((0.22, 0.24), (0.60, 0.64)),
         }
     }
 }

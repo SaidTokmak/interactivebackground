@@ -93,7 +93,7 @@ impl AppStore {
                  CREATE TABLE IF NOT EXISTS desktop_widgets (
                      id INTEGER PRIMARY KEY AUTOINCREMENT,
                      monitor_key TEXT NOT NULL,
-                     kind TEXT NOT NULL CHECK (kind IN ('focus', 'kanban', 'pomodoro', 'clock', 'date')),
+                     kind TEXT NOT NULL CHECK (kind IN ('focus', 'kanban', 'pomodoro', 'clock', 'date', 'daily_poem', 'daily_verse', 'daily_hadith')),
                      x REAL NOT NULL,
                      y REAL NOT NULL,
                      width REAL NOT NULL,
@@ -134,6 +134,7 @@ impl AppStore {
         ensure_auto_calm_column(&connection)?;
         ensure_theme_column(&connection)?;
         ensure_language_column(&connection)?;
+        migrate_desktop_widget_kind_constraint(&mut connection)?;
         migrate_widget_layouts(&mut connection)?;
 
         let store = Self {
@@ -1096,6 +1097,77 @@ fn ensure_language_column(connection: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+fn migrate_desktop_widget_kind_constraint(connection: &mut Connection) -> Result<(), String> {
+    let table_sql: String = connection
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'desktop_widgets'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(database_error)?;
+    if table_sql.contains("daily_poem") {
+        return Ok(());
+    }
+
+    connection
+        .execute_batch("PRAGMA foreign_keys = OFF;")
+        .map_err(database_error)?;
+    let migration_result = (|| {
+        let transaction = connection.transaction().map_err(database_error)?;
+        transaction
+            .execute_batch(
+                "DROP INDEX IF EXISTS desktop_widgets_monitor_order;
+                 ALTER TABLE pomodoro_states RENAME TO pomodoro_states_kind_v1;
+                 ALTER TABLE desktop_widgets RENAME TO desktop_widgets_kind_v1;
+
+                 CREATE TABLE desktop_widgets (
+                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     monitor_key TEXT NOT NULL,
+                     kind TEXT NOT NULL CHECK (kind IN ('focus', 'kanban', 'pomodoro', 'clock', 'date', 'daily_poem', 'daily_verse', 'daily_hadith')),
+                     x REAL NOT NULL,
+                     y REAL NOT NULL,
+                     width REAL NOT NULL,
+                     height REAL NOT NULL,
+                     locked INTEGER NOT NULL DEFAULT 0 CHECK (locked IN (0, 1)),
+                     snap_to_grid INTEGER NOT NULL DEFAULT 1 CHECK (snap_to_grid IN (0, 1)),
+                     visible INTEGER NOT NULL DEFAULT 1 CHECK (visible IN (0, 1)),
+                     sort_order INTEGER NOT NULL DEFAULT 0
+                 );
+                 INSERT INTO desktop_widgets
+                     (id, monitor_key, kind, x, y, width, height, locked, snap_to_grid, visible, sort_order)
+                 SELECT id, monitor_key, kind, x, y, width, height, locked, snap_to_grid, visible, sort_order
+                 FROM desktop_widgets_kind_v1;
+
+                 CREATE TABLE pomodoro_states (
+                     widget_id INTEGER PRIMARY KEY,
+                     mode TEXT NOT NULL DEFAULT 'work' CHECK (mode IN ('work', 'break')),
+                     work_minutes INTEGER NOT NULL DEFAULT 25 CHECK (work_minutes BETWEEN 1 AND 180),
+                     break_minutes INTEGER NOT NULL DEFAULT 5 CHECK (break_minutes BETWEEN 1 AND 60),
+                     remaining_seconds INTEGER NOT NULL DEFAULT 1500,
+                     running INTEGER NOT NULL DEFAULT 0 CHECK (running IN (0, 1)),
+                     ends_at INTEGER,
+                     FOREIGN KEY (widget_id) REFERENCES desktop_widgets(id) ON DELETE CASCADE
+                 );
+                 INSERT INTO pomodoro_states
+                     (widget_id, mode, work_minutes, break_minutes, remaining_seconds, running, ends_at)
+                 SELECT widget_id, mode, work_minutes, break_minutes, remaining_seconds, running, ends_at
+                 FROM pomodoro_states_kind_v1;
+
+                 DROP TABLE pomodoro_states_kind_v1;
+                 DROP TABLE desktop_widgets_kind_v1;
+                 CREATE INDEX desktop_widgets_monitor_order
+                 ON desktop_widgets (monitor_key, sort_order, id);",
+            )
+            .map_err(database_error)?;
+        transaction.commit().map_err(database_error)
+    })();
+    let restore_result = connection
+        .execute_batch("PRAGMA foreign_keys = ON;")
+        .map_err(database_error);
+    migration_result?;
+    restore_result
+}
+
 fn migrate_widget_layouts(connection: &mut Connection) -> Result<(), String> {
     let transaction = connection.transaction().map_err(database_error)?;
     let migrated = transaction
@@ -1479,6 +1551,71 @@ mod tests {
         let duplicate_state = store.get_pomodoro_state(duplicate.id).unwrap();
         assert_eq!(duplicate_state.work_minutes, 50);
         assert_eq!(duplicate_state.break_minutes, 10);
+    }
+
+    #[test]
+    fn expands_widget_kinds_without_losing_existing_pomodoro_state() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "PRAGMA foreign_keys = ON;
+                 CREATE TABLE desktop_widgets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    monitor_key TEXT NOT NULL,
+                    kind TEXT NOT NULL CHECK (kind IN ('focus', 'kanban', 'pomodoro', 'clock', 'date')),
+                    x REAL NOT NULL, y REAL NOT NULL, width REAL NOT NULL, height REAL NOT NULL,
+                    locked INTEGER NOT NULL DEFAULT 0 CHECK (locked IN (0, 1)),
+                    snap_to_grid INTEGER NOT NULL DEFAULT 1 CHECK (snap_to_grid IN (0, 1)),
+                    visible INTEGER NOT NULL DEFAULT 1 CHECK (visible IN (0, 1)),
+                    sort_order INTEGER NOT NULL DEFAULT 0
+                 );
+                 CREATE INDEX desktop_widgets_monitor_order ON desktop_widgets (monitor_key, sort_order, id);
+                 CREATE TABLE pomodoro_states (
+                    widget_id INTEGER PRIMARY KEY,
+                    mode TEXT NOT NULL DEFAULT 'work' CHECK (mode IN ('work', 'break')),
+                    work_minutes INTEGER NOT NULL DEFAULT 25 CHECK (work_minutes BETWEEN 1 AND 180),
+                    break_minutes INTEGER NOT NULL DEFAULT 5 CHECK (break_minutes BETWEEN 1 AND 60),
+                    remaining_seconds INTEGER NOT NULL DEFAULT 1500,
+                    running INTEGER NOT NULL DEFAULT 0 CHECK (running IN (0, 1)),
+                    ends_at INTEGER,
+                    FOREIGN KEY (widget_id) REFERENCES desktop_widgets(id) ON DELETE CASCADE
+                 );
+                 INSERT INTO desktop_widgets
+                    (id, monitor_key, kind, x, y, width, height, locked, snap_to_grid, visible, sort_order)
+                 VALUES (41, '__primary__', 'pomodoro', .05, .12, .25, .34, 0, 1, 1, 0);
+                 INSERT INTO pomodoro_states
+                    (widget_id, mode, work_minutes, break_minutes, remaining_seconds, running, ends_at)
+                 VALUES (41, 'break', 50, 10, 321, 0, NULL);",
+            )
+            .unwrap();
+
+        let store = AppStore::from_connection(connection).unwrap();
+        let state = store.get_pomodoro_state(41).unwrap();
+        assert_eq!(state.mode, PomodoroMode::Break);
+        assert_eq!(state.work_minutes, 50);
+        assert_eq!(state.break_minutes, 10);
+        assert_eq!(state.remaining_seconds, 321);
+
+        let poem = store
+            .add_desktop_widget(None, WidgetKind::DailyPoem)
+            .unwrap();
+        let verse = store
+            .add_desktop_widget(None, WidgetKind::DailyVerse)
+            .unwrap();
+        let hadith = store
+            .add_desktop_widget(None, WidgetKind::DailyHadith)
+            .unwrap();
+        assert_eq!(poem.kind, WidgetKind::DailyPoem);
+        assert_eq!(verse.kind, WidgetKind::DailyVerse);
+        assert_eq!(hadith.kind, WidgetKind::DailyHadith);
+
+        let connection = store.lock_connection().unwrap();
+        let violations: i64 = connection
+            .query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(violations, 0);
     }
 
     #[test]

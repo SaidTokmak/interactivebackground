@@ -275,6 +275,9 @@ function defaultDesktopWidget(monitorId: string | null, kind: WidgetKind, id: nu
     pomodoro: [0.05, 0.12, 0.25, 0.34],
     clock: [0.05, 0.54, 0.22, 0.20],
     date: [0.30, 0.72, 0.25, 0.18],
+    dailyPoem: [0.28, 0.08, 0.30, 0.34],
+    dailyVerse: [0.24, 0.48, 0.32, 0.34],
+    dailyHadith: [0.03, 0.58, 0.28, 0.30],
   };
   const [baseX, baseY, width, height] = frames[kind];
   const offset = (sortOrder % 6) * 0.025;

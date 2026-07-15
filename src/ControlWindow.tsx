@@ -192,7 +192,7 @@ export function ControlWindow() {
             <div className="widget-panel-heading">
               <div><h3>{t("widgets.title")}</h3><span>{t("widgets.subtitle")}</span></div>
               <div className="widget-catalog">
-                {(["focus", "kanban", "pomodoro", "clock", "date"] as WidgetKind[]).map((kind) => <button onClick={() => void addWidget(kind)} key={kind}>＋ {widgetKindLabel(kind, t)}</button>)}
+                {(["focus", "kanban", "pomodoro", "clock", "date", "dailyPoem", "dailyVerse", "dailyHadith"] as WidgetKind[]).map((kind) => <button onClick={() => void addWidget(kind)} key={kind}>＋ {widgetKindLabel(kind, t)}</button>)}
               </div>
             </div>
             {widgets.length === 0 && <p className="widget-empty">{t("widgets.empty")}</p>}
@@ -371,5 +371,8 @@ function widgetIcon(kind: WidgetKind) {
   if (kind === "kanban") return "▦";
   if (kind === "pomodoro") return "◷";
   if (kind === "clock") return "◴";
-  return "▣";
+  if (kind === "date") return "▣";
+  if (kind === "dailyPoem") return "❧";
+  if (kind === "dailyVerse") return "◇";
+  return "☾";
 }

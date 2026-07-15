@@ -35,7 +35,7 @@ export type WidgetLayout = {
   snapToGrid: boolean;
 };
 
-export type WidgetKind = "focus" | "kanban" | "pomodoro" | "clock" | "date";
+export type WidgetKind = "focus" | "kanban" | "pomodoro" | "clock" | "date" | "dailyPoem" | "dailyVerse" | "dailyHadith";
 
 export type DesktopWidget = {
   id: number;

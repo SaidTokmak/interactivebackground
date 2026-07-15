@@ -106,13 +106,15 @@ penceresi yeniden oluşturulduğunda yerleşim ile sayaç durumu korunur.
 
 ## Faz 6 — Günlük içerik widget'ları
 
+Durum: Tamamlandı — 16 Temmuz 2026
+
 - Günün şiiri: yalnızca kamu malı, açık lisanslı veya izinli içerik koleksiyonu.
 - Ayet widget'ı: sure/ayet numarası, çeviri adı ve kaynak gösterimi zorunlu.
 - Hadis widget'ı: eser, bölüm/numara ve doğrulanabilir kaynak gösterimi zorunlu.
-- Dini içeriklerin tamamen isteğe bağlı olması ve kullanıcı tarafından içerik
-  paketi/çeviri seçilebilmesi.
-- Çevrimdışı içerik paketleri veya güvenilir API sağlayıcısı için cache,
-  bağlantı hatası ve günlük yenileme politikası.
+- Dini içeriklerin tamamen isteğe bağlı olması; katalogdan eklenmedikçe
+  masaüstünde gösterilmemesi ve tek tıkla kaldırılabilmesi.
+- İlk sürümde ağ/API bağımlılığı yerine denetlenmiş çevrimdışı içerik paketi ve
+  yerel takvim gününe bağlı deterministik yenileme politikası.
 - Dil ve bölgeye göre uygun içerik; kaynağı belirsiz rastgele metin gösterilmez.
 
 Kabul ölçütü: Her içerik kartı kaynağını açıkça gösterir, internet kesilince son
@@ -149,7 +151,5 @@ doğrulanmış içerik korunur ve kullanıcı özelliği tamamen kapatabilir.
 
 ## Önerilen bir sonraki çalışma
 
-Faz 6'ya geçilmelidir: günlük içerik widget'ları için kaynak, lisans, çeviri ve
-çevrimdışı cache modeli tasarlanmalıdır. İlk uygulama yalnızca kaynağı açıkça
-gösterilen, doğrulanmış ve kullanıcı tarafından tamamen kapatılabilen bir içerik
-paketiyle başlamalıdır.
+Faz 7'ye geçilmelidir: ilk kullanımda dil, tema, hedef monitör, arka plan ve
+başlangıç widget düzenini birlikte kuran kişiselleştirme akışı hazırlanmalıdır.

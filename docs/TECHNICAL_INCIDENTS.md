@@ -445,3 +445,43 @@ Migration işareti `done` olarak yazılırken mevcut beş görev ve tüm uygulam
 ayarları aynen korundu. Henüz Pomodoro eklenmediği için gereksiz sayaç satırı
 oluşturulmadı. Bildirim izni kurulum paketine eklendi; NSIS ile Türkçe ve
 İngilizce MSI paketleri başarıyla üretildi.
+
+## FEATURE-010 — Kaynaklı çevrimdışı günlük içerik widget'ları
+
+- Tarih: 16 Temmuz 2026
+- Durum: Uygulandı; lisans, migration ve üretim derlemesi düzeyinde doğrulandı
+- Final rapora dahil et: Evet
+
+Kataloğa Günün Şiiri, Günün Ayeti ve Günün Hadisi türleri eklendi. Seçim ağ
+servisine bırakılmadı; uygulamayla paketlenen denetlenmiş koleksiyon yerel takvim
+gününden deterministik indeks üretir. Böylece ağ kesintisi, API yanıtının
+sonradan değişmesi ve uzaktaki kaynağın kaybolması kart içeriğini bozmaz.
+
+Şiir paketi yalnızca Yunus Emre, Fuzûlî, Emily Dickinson, William Blake ve
+Christina Rossetti'nin kamu malı metinlerinden kısa bölümler içerir. Ayetlerde
+değiştirilmemiş Tanzil Arapça metni CC BY 3.0 atfıyla; Türkçede kamu malı
+Elmalılı, İngilizcede kamu malı Pickthall mealiyle gösterilir. Modern hadis
+çevirilerinin yeniden dağıtım izni belirsiz olduğundan uygulama yalnızca klasik
+Arapça kısa metni ve kanonik eser/numarayı paketler; çeviri ve bağlam için
+kullanıcı doğrulama sayfasına yönlendirilir. Bütün kararlar ve tekil kaynaklar
+`docs/CONTENT_SOURCES.md` içinde kaydedildi.
+
+Widget'lar varsayılan yerleşime otomatik eklenmez. Kullanıcı katalogdan açıkça
+eklediğinde görünür ve kaldırdığında tamamen kapanır. Her kart kaynak bağlantısı,
+eser/ayet/hadis referansı ve lisans özeti taşır; bağlantı Tauri opener üzerinden
+varsayılan tarayıcıda açılır. İçerik seçimi telemetri, kullanıcı kimliği veya ağ
+tabanlı kişiselleştirme kullanmaz.
+
+Eski `desktop_widgets.kind` CHECK kısıtı yeni türleri kabul etmediği için tablo
+transaction içinde yeniden kuruldu. `pomodoro_states` yabancı anahtarı da aynı
+transaction içinde kontrollü taşındı; mevcut widget kimlikleri, sıraları,
+yerleşimleri ve sayaç durumları aynen kopyalandı. Migration testi eski beş türle
+oluşturulmuş veritabanını açıp mevcut Pomodoro değerlerinin korunduğunu, üç yeni
+türün eklenebildiğini ve `foreign_key_check` sonucunun boş kaldığını doğrular.
+
+Release binary gerçek kullanıcı veritabanında tray'e gizli çalıştırıldı. Önceki
+beş widget (Odak, Kanban, Pomodoro, Saat ve Tarih), bir Pomodoro durum satırı,
+beş görev ve koyu tema/monitör ayarları sayılarıyla birlikte korundu. Tablo CHECK
+kısıtının üç yeni türü içerdiği ve `foreign_key_check` sonucunda ihlal bulunmadığı
+salt okunur sorguyla teyit edildi. Aynı derlemeden NSIS ile Türkçe ve İngilizce
+MSI paketleri başarıyla üretildi.
