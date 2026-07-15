@@ -49,6 +49,8 @@ wallpaper ve tray aynı dili gösterir.
 
 ## Faz 3 — Kullanıcı arka planları ve hazır temalar
 
+Durum: Tamamlandı — 15 Temmuz 2026
+
 - Kullanıcının dosya seçiciyle JPG, PNG veya WebP arka plan seçebilmesi.
 - `Kapla`, `sığdır` ve `uzat` görüntüleme seçenekleri.
 - Her monitör için bağımsız arka plan ve tema tercihi.
@@ -143,7 +145,7 @@ doğrulanmış içerik korunur ve kullanıcı özelliği tamamen kapatabilir.
 
 ## Önerilen bir sonraki çalışma
 
-Faz 3'e geçilmelidir: kullanıcı arka planı seçme, görüntü ölçekleme seçenekleri
-ve ilk hazır tema koleksiyonu birlikte ele alınmalıdır. Böylece Faz 4'teki
-yerleşim motoru gerçek arka planlar üzerinde okunabilirlik katmanlarıyla test
-edilebilir.
+Faz 4'e geçilmelidir: görev widget'ının yalnızca düzenleme modunda sürüklenip
+yeniden boyutlandırılabildiği, monitör sınırları içinde kalan normalize edilmiş
+yerleşim motoru kurulmalıdır. Hazır temalar ile kullanıcı görsellerinin tamamı
+bu motorun okunabilirlik ve sınır testlerinde kullanılmalıdır.

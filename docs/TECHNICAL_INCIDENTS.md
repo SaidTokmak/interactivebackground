@@ -307,3 +307,45 @@ Release binary `--hidden` ile gerçek kullanıcı veritabanında çalıştırıl
 düzenleme modu, monitör, sakin mod ve tema değerlerinin değişmeden kaldığı salt
 okunur sorguyla teyit edildi. Aynı release derlemesinden NSIS ile Türkçe ve
 İngilizce MSI paketleri de başarıyla üretildi.
+
+## FEATURE-007 — Kullanıcı arka planları ve hazır tema koleksiyonu
+
+- Tarih: 15 Temmuz 2026
+- Durum: Uygulandı, görsel ve release düzeyinde doğrulandı
+- Final rapora dahil et: Evet
+
+Arka plan ayarları global `app_settings` satırına eklenmek yerine
+`monitor_backgrounds` tablosunda monitör anahtarıyla tutuldu. Kaynak türü,
+hazır tema, özel dosya yolu, görüntü yerleşimi, karartma ve blur değeri her
+monitör için bağımsızdır. Hedef monitör değiştirilince ilgili profil yüklenir;
+henüz profili olmayan monitör güvenli `Folded Horizon` varsayılanını alır.
+
+İlk hazır koleksiyon `Folded Horizon`, `Midnight`, `Graphite` ve `Ember`
+temalarından oluşur. Temalar harici bitmap veya lisanslı içerik kullanmaz;
+uygulamanın marka paletinden türetilmiş CSS katmanlarıyla üretilir. Önizleme ve
+gerçek wallpaper aynı `WallpaperSurface` bileşenini kullandığı için görünüm,
+karartma ve bulanıklık iki pencerede birebir aynıdır.
+
+Kullanıcı görseli resmi Tauri dosya seçiciyle alınır. JPG/JPEG, PNG ve WebP
+dışındaki uzantılar; dosya imzası uzantıyla eşleşmeyen içerikler; boş veya
+50 MB'tan büyük dosyalar Rust tarafında reddedilir. Geçerli görsel dış konumdan
+doğrudan sunulmaz: atomik geçişle uygulamanın `backgrounds` veri klasörüne
+kopyalanır. Böylece dialog tarafından verilen geçici scope yeniden başlatmada
+kaybolsa veya kaynak dosya sonradan silinse bile wallpaper çalışmaya devam eder.
+
+WebView yalnızca uygulama veri klasörünü okuyabilen Tauri asset protokolünü
+kullanır. Ayar komutu özel dosya yolunun bu yönetilen klasör içinde olduğunu
+canonical path kontrolüyle yeniden doğrular. Yeni görsel veya hazır tema
+seçilince önceki yönetilen kopya temizlenir; kayıtlı dosya erişilemez hale
+gelirse sistem hazır temaya güvenli biçimde döner.
+
+Arayüzde hazır tema kartları, native görsel seçici, `Kapla`/`Sığdır`/`Uzat`
+yerleşimi ve canlı karartma/blur kontrolleri Türkçe ve İngilizce eklendi. Dört
+tema tarayıcıda tek tek değiştirilerek, 1280 piksel görünümde yatay taşma
+olmadan ve iki dilde doğrulandı. Rust testleri monitör profillerinin ayrılığını,
+dosya imzası reddini ve yönetilen klasöre eksiksiz kopyalamayı kapsar.
+
+Release binary gerçek kullanıcı veritabanında `--hidden` çalıştırıldı;
+`monitor_backgrounds` tablosunun yedi beklenen sütunla oluştuğu, mevcut görev ve
+uygulama ayarlarının değişmediği salt okunur sorguyla doğrulandı. NSIS ile iki
+MSI paketi asset protocol ve dialog eklentileriyle başarıyla üretildi.

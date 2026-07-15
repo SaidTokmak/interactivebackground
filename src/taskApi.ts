@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AppSettings, DesktopHostStatus, MonitorInfo, Task, TaskStatus } from "./types";
+import type { AppSettings, BackgroundSettings, DesktopHostStatus, MonitorInfo, Task, TaskStatus } from "./types";
 
 let browserTasks: Task[] = [
   { id: 1, title: "Rust ownership notlarını bitir", status: "done", scheduledFor: "09:30" },
@@ -103,6 +103,24 @@ export async function updateSettings(settings: AppSettings): Promise<AppSettings
   return { ...browserSettings };
 }
 
+export async function getBackgroundSettings(monitorId: string | null): Promise<BackgroundSettings> {
+  if (isTauriRuntime()) return invoke<BackgroundSettings>("get_background_settings", { monitorId });
+  return { ...(browserBackgrounds.get(monitorId ?? "__primary__") ?? defaultBackground(monitorId)) };
+}
+
+export async function updateBackgroundSettings(settings: BackgroundSettings): Promise<BackgroundSettings> {
+  if (isTauriRuntime()) {
+    return invoke<BackgroundSettings>("update_background_settings", { settings });
+  }
+  browserBackgrounds.set(settings.monitorId ?? "__primary__", { ...settings });
+  return { ...settings };
+}
+
+export async function chooseBackgroundImage(filterName: string): Promise<string | null> {
+  if (!isTauriRuntime()) return null;
+  return invoke<string | null>("choose_background_image", { filterName });
+}
+
 let browserSettings: AppSettings = {
   template: "focus",
   opacity: 82,
@@ -112,3 +130,17 @@ let browserSettings: AppSettings = {
   theme: "system",
   language: "system",
 };
+
+const browserBackgrounds = new Map<string, BackgroundSettings>();
+
+function defaultBackground(monitorId: string | null): BackgroundSettings {
+  return {
+    monitorId,
+    source: "preset",
+    preset: "foldedHorizon",
+    customPath: null,
+    fit: "cover",
+    overlay: 16,
+    blur: 0,
+  };
+}

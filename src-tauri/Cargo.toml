@@ -18,13 +18,14 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "=2.5.3", features = [] }
 
 [dependencies]
-tauri = { version = "=2.9.5", features = ["tray-icon"] }
+tauri = { version = "=2.9.5", features = ["tray-icon", "protocol-asset"] }
 tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # 0.40.1'in libsqlite3-sys build script'i mevcut stable Rust'ta kararsız
 # `cfg_select` kullanıyor. Uyumlu sürümü kesin olarak sabitliyoruz.
 rusqlite = { version = "=0.39.0", features = ["bundled"] }
+tauri-plugin-dialog = "2"
 
 # WorkerW masaüstü katmanı yalnızca Windows'ta derlenir. `windows-sys`, Win32
 # fonksiyonlarına ince ve doğrudan bir FFI katmanı sağlar; diğer platformların

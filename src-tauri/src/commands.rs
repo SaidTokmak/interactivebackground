@@ -1,10 +1,18 @@
+use std::{
+    fs::File,
+    io::Read,
+    path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
+};
+
 use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindowBuilder};
+use tauri_plugin_dialog::DialogExt;
 
 use crate::{
     desktop_host::{DesktopHostState, DesktopHostStatus},
     model::{Task, TaskStatus},
     monitors::MonitorInfo,
-    settings::AppSettings,
+    settings::{AppSettings, BackgroundSettings, BackgroundSource},
     store::AppStore,
 };
 
@@ -101,6 +109,115 @@ pub fn update_settings(
         }
     }
     Ok(settings)
+}
+
+#[tauri::command]
+pub fn get_background_settings(
+    monitor_id: Option<String>,
+    store: State<'_, AppStore>,
+    app: AppHandle,
+) -> Result<BackgroundSettings, String> {
+    let mut settings = store.get_background_settings(monitor_id)?;
+    if settings.source == BackgroundSource::Custom
+        && settings
+            .custom_path
+            .as_deref()
+            .is_none_or(|path| !Path::new(path).is_file())
+    {
+        settings.source = BackgroundSource::Preset;
+        settings.custom_path = None;
+        settings = store.update_background_settings(settings)?;
+        notify_background_change(&app);
+    }
+    Ok(settings)
+}
+
+#[tauri::command]
+pub fn update_background_settings(
+    settings: BackgroundSettings,
+    store: State<'_, AppStore>,
+    app: AppHandle,
+) -> Result<BackgroundSettings, String> {
+    if settings.source == BackgroundSource::Custom {
+        let path = settings
+            .custom_path
+            .as_deref()
+            .ok_or_else(|| "Özel arka plan dosyası bulunamadı.".to_string())?;
+        validate_managed_background_path(&app, path)?;
+    }
+
+    let previous = store.get_background_settings(settings.monitor_id.clone())?;
+    let updated = store.update_background_settings(settings)?;
+    if previous.source == BackgroundSource::Custom && previous.custom_path != updated.custom_path {
+        if let Some(path) = previous.custom_path.as_deref() {
+            remove_managed_background(&app, path);
+        }
+    }
+    notify_background_change(&app);
+    Ok(updated)
+}
+
+#[tauri::command]
+pub async fn choose_background_image(
+    filter_name: String,
+    app: AppHandle,
+) -> Result<Option<String>, String> {
+    let selected = app
+        .dialog()
+        .file()
+        .add_filter(filter_name, &["jpg", "jpeg", "png", "webp"])
+        .blocking_pick_file();
+    let Some(selected) = selected else {
+        return Ok(None);
+    };
+    let source = selected
+        .into_path()
+        .map_err(|error| format!("Arka plan dosya yolu okunamadı: {error}"))?;
+    let destination = import_background_image_to(&source, &managed_background_directory(&app)?)?;
+    Ok(Some(destination.to_string_lossy().into_owned()))
+}
+
+fn import_background_image_to(source: &Path, backgrounds: &Path) -> Result<PathBuf, String> {
+    let source = source
+        .canonicalize()
+        .map_err(|error| format!("Arka plan dosyası açılamadı: {error}"))?;
+    let extension = source
+        .extension()
+        .and_then(|value| value.to_str())
+        .map(str::to_ascii_lowercase)
+        .ok_or_else(|| "Arka plan dosya türü desteklenmiyor.".to_string())?;
+    if !matches!(extension.as_str(), "jpg" | "jpeg" | "png" | "webp") {
+        return Err("Arka plan dosya türü desteklenmiyor.".into());
+    }
+
+    let metadata = source
+        .metadata()
+        .map_err(|error| format!("Arka plan dosyası okunamadı: {error}"))?;
+    if metadata.len() == 0 || metadata.len() > 50 * 1024 * 1024 {
+        return Err("Arka plan görseli boş olamaz ve 50 MB'ı geçemez.".into());
+    }
+    validate_image_signature(&source, &extension)?;
+
+    std::fs::create_dir_all(backgrounds)
+        .map_err(|error| format!("Arka plan klasörü oluşturulamadı: {error}"))?;
+    let suffix = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| format!("Sistem saati okunamadı: {error}"))?
+        .as_nanos();
+    let extension = if extension == "jpeg" {
+        "jpg"
+    } else {
+        &extension
+    };
+    let destination = backgrounds.join(format!("background-{suffix}.{extension}"));
+    let temporary = backgrounds.join(format!(".background-{suffix}.tmp"));
+    std::fs::copy(&source, &temporary)
+        .map_err(|error| format!("Arka plan görseli kopyalanamadı: {error}"))?;
+    std::fs::rename(&temporary, &destination).map_err(|error| {
+        let _ = std::fs::remove_file(&temporary);
+        format!("Arka plan görseli kaydedilemedi: {error}")
+    })?;
+    Ok(destination)
 }
 
 #[tauri::command]
@@ -302,6 +419,12 @@ fn notify_settings_change(app: &AppHandle) {
     }
 }
 
+fn notify_background_change(app: &AppHandle) {
+    if let Err(error) = app.emit("background-settings-changed", ()) {
+        eprintln!("background-settings-changed olayı yayınlanamadı: {error}");
+    }
+}
+
 fn notify_desktop_host_change(app: &AppHandle) {
     if let Err(error) = app.emit("desktop-host-changed", ()) {
         eprintln!("desktop-host-changed olayı yayınlanamadı: {error}");
@@ -337,4 +460,107 @@ fn activate_wallpaper_mode(
 
 fn window_error(error: tauri::Error) -> String {
     format!("Pencere işlemi başarısız: {error}")
+}
+
+fn managed_background_directory(app: &AppHandle) -> Result<PathBuf, String> {
+    app.path()
+        .app_data_dir()
+        .map(|path| path.join("backgrounds"))
+        .map_err(|error| format!("Arka plan klasörü bulunamadı: {error}"))
+}
+
+fn validate_managed_background_path(app: &AppHandle, path: &str) -> Result<(), String> {
+    let managed = managed_background_directory(app)?
+        .canonicalize()
+        .map_err(|error| format!("Arka plan klasörü okunamadı: {error}"))?;
+    let candidate = PathBuf::from(path)
+        .canonicalize()
+        .map_err(|error| format!("Arka plan dosyası açılamadı: {error}"))?;
+    if !candidate.starts_with(managed) || !candidate.is_file() {
+        return Err("Özel arka plan uygulamanın yönetilen klasöründe değil.".into());
+    }
+    Ok(())
+}
+
+fn remove_managed_background(app: &AppHandle, path: &str) {
+    let Ok(managed) = managed_background_directory(app).and_then(|path| {
+        path.canonicalize()
+            .map_err(|error| format!("Arka plan klasörü okunamadı: {error}"))
+    }) else {
+        return;
+    };
+    let Ok(candidate) = PathBuf::from(path).canonicalize() else {
+        return;
+    };
+    if candidate.starts_with(managed) {
+        if let Err(error) = std::fs::remove_file(candidate) {
+            eprintln!("Eski arka plan görseli silinemedi: {error}");
+        }
+    }
+}
+
+fn validate_image_signature(path: &Path, extension: &str) -> Result<(), String> {
+    let mut header = [0_u8; 12];
+    let mut file =
+        File::open(path).map_err(|error| format!("Arka plan dosyası okunamadı: {error}"))?;
+    let bytes_read = file
+        .read(&mut header)
+        .map_err(|error| format!("Arka plan dosyası okunamadı: {error}"))?;
+    let valid = match extension {
+        "png" => bytes_read >= 8 && header[..8] == [137, 80, 78, 71, 13, 10, 26, 10],
+        "jpg" | "jpeg" => bytes_read >= 3 && header[..3] == [0xff, 0xd8, 0xff],
+        "webp" => bytes_read >= 12 && &header[..4] == b"RIFF" && &header[8..12] == b"WEBP",
+        _ => false,
+    };
+    if valid {
+        Ok(())
+    } else {
+        Err("Arka plan dosyasının içeriği seçilen görsel türüyle eşleşmiyor.".into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{import_background_image_to, validate_image_signature};
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    fn accepts_matching_image_signatures_and_rejects_disguised_files() {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let png = std::env::temp_dir().join(format!("interactivebackground-{suffix}.png"));
+        let fake = std::env::temp_dir().join(format!("interactivebackground-{suffix}-fake.png"));
+        std::fs::write(&png, [137, 80, 78, 71, 13, 10, 26, 10, 0, 0, 0, 0]).unwrap();
+        std::fs::write(&fake, b"not an image").unwrap();
+
+        assert!(validate_image_signature(&png, "png").is_ok());
+        assert!(validate_image_signature(&fake, "png").is_err());
+
+        std::fs::remove_file(png).unwrap();
+        std::fs::remove_file(fake).unwrap();
+    }
+
+    #[test]
+    fn imports_a_valid_image_into_the_managed_directory() {
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("interactivebackground-import-{suffix}"));
+        let source = root.join("source.png");
+        let managed = root.join("managed");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::write(&source, [137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4]).unwrap();
+
+        let imported = import_background_image_to(&source, &managed).unwrap();
+        assert!(imported.starts_with(&managed));
+        assert_eq!(
+            std::fs::read(imported).unwrap(),
+            std::fs::read(source).unwrap()
+        );
+
+        std::fs::remove_dir_all(root).unwrap();
+    }
 }

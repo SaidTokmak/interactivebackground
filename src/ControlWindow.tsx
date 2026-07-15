@@ -1,9 +1,10 @@
 import { FormEvent, useEffect, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
-import { getDesktopHostStatus, hideWallpaper, isTauriRuntime, showWallpaper } from "./taskApi";
-import type { DesktopHostStatus, LanguagePreference, ThemePreference } from "./types";
+import { chooseBackgroundImage as openBackgroundImage, getDesktopHostStatus, hideWallpaper, isTauriRuntime, showWallpaper } from "./taskApi";
+import type { BackgroundFit, BackgroundPreset, DesktopHostStatus, LanguagePreference, ThemePreference } from "./types";
 import { useI18n } from "./i18n";
+import { useBackgroundSettings } from "./useBackgroundSettings";
 import { useMonitors } from "./useMonitors";
 import { useSettings } from "./useSettings";
 import { useTasks } from "./useTasks";
@@ -15,6 +16,7 @@ export function ControlWindow() {
   const { tasks, error: taskError, addTask, toggleTask, moveTask, removeTask } = useTasks();
   const { settings, settingsError, saveSettings } = useSettings();
   const { monitors, monitorError } = useMonitors();
+  const { background, backgroundError, saveBackground } = useBackgroundSettings(settings.monitorId);
   const [title, setTitle] = useState("");
   const [time, setTime] = useState("");
   const [opacityDraft, setOpacityDraft] = useState(settings.opacity);
@@ -22,11 +24,15 @@ export function ControlWindow() {
   const [desktopStatus, setDesktopStatus] = useState<DesktopHostStatus | null>(null);
   const [autoStartEnabled, setAutoStartEnabled] = useState(false);
   const [integrationError, setIntegrationError] = useState("");
+  const [overlayDraft, setOverlayDraft] = useState(background.overlay);
+  const [blurDraft, setBlurDraft] = useState(background.blur);
 
   useTheme(settings.theme);
   const { t, formatDate, localizeError } = useI18n(settings.language);
 
   useEffect(() => setOpacityDraft(settings.opacity), [settings.opacity]);
+  useEffect(() => setOverlayDraft(background.overlay), [background.overlay]);
+  useEffect(() => setBlurDraft(background.blur), [background.blur]);
   useEffect(() => {
     if (!isTauriRuntime()) return;
     void isEnabled()
@@ -99,6 +105,21 @@ export function ControlWindow() {
     }
   }
 
+  async function chooseBackgroundImage() {
+    try {
+      const managedPath = await openBackgroundImage(t("background.imageFilter"));
+      if (!managedPath) return;
+      await saveBackground({ ...background, source: "custom", customPath: managedPath });
+      setIntegrationError("");
+    } catch (reason) {
+      setIntegrationError(String(reason));
+    }
+  }
+
+  function selectPreset(preset: BackgroundPreset) {
+    void saveBackground({ ...background, source: "preset", preset, customPath: null });
+  }
+
   return (
     <main className="app-shell">
       <header className="app-header">
@@ -141,7 +162,7 @@ export function ControlWindow() {
               </form>
             )}
 
-            {(taskError || settingsError || monitorError || integrationError || desktopStatus?.warning) && <p className="error-message" role="alert">{localizeError(taskError || settingsError || monitorError || integrationError || desktopStatus?.warning || "")}</p>}
+            {(taskError || settingsError || backgroundError || monitorError || integrationError || desktopStatus?.warning) && <p className="error-message" role="alert">{localizeError(taskError || settingsError || backgroundError || monitorError || integrationError || desktopStatus?.warning || "")}</p>}
 
             <div className="manager-list">
               {tasks.map((task) => (
@@ -165,7 +186,49 @@ export function ControlWindow() {
             </div>
           </div>
 
-          <WallpaperSurface tasks={tasks} template={settings.template} editMode={settings.editMode} opacity={opacityDraft} language={settings.language} onToggle={(id) => void toggleTask(id)} onMove={(id, status) => void moveTask(id, status)} />
+          <WallpaperSurface tasks={tasks} template={settings.template} editMode={settings.editMode} opacity={opacityDraft} language={settings.language} background={{ ...background, overlay: overlayDraft, blur: blurDraft }} onToggle={(id) => void toggleTask(id)} onMove={(id, status) => void moveTask(id, status)} />
+
+          <section className="background-panel">
+            <div className="background-heading">
+              <div><h3>{t("background.title")}</h3><span>{t("background.subtitle")}</span></div>
+              <button className="background-file-button" onClick={() => void chooseBackgroundImage()}>
+                {background.source === "custom" ? t("background.replace") : t("background.choose")}
+              </button>
+            </div>
+            <div className="background-options">
+              {(["foldedHorizon", "midnight", "graphite", "ember"] as BackgroundPreset[]).map((preset) => {
+                const name = t(`background.${preset}` as "background.foldedHorizon" | "background.midnight" | "background.graphite" | "background.ember");
+                return (
+                  <button className={`background-option ${background.source === "preset" && background.preset === preset ? "active" : ""}`} aria-label={t("background.presetAria", { name })} onClick={() => selectPreset(preset)} key={preset}>
+                    <span className={`background-swatch preset-${preset}`} />
+                    <b>{name}</b>
+                  </button>
+                );
+              })}
+              <button className={`background-option custom-option ${background.source === "custom" ? "active" : ""}`} onClick={() => void chooseBackgroundImage()}>
+                <span className="background-swatch custom-swatch">＋</span>
+                <b>{t("background.custom")}</b>
+              </button>
+            </div>
+            <div className="background-adjustments">
+              <label className="monitor-control background-fit-control">
+                <span>{t("background.fit")}</span>
+                <select disabled={background.source !== "custom"} value={background.fit} onChange={(event) => void saveBackground({ ...background, fit: event.target.value as BackgroundFit })}>
+                  <option value="cover">{t("background.fitCover")}</option>
+                  <option value="contain">{t("background.fitContain")}</option>
+                  <option value="stretch">{t("background.fitStretch")}</option>
+                </select>
+              </label>
+              <label className="opacity-control background-range">
+                <span>{t("background.overlay")} <b>%{overlayDraft}</b></span>
+                <input type="range" min="0" max="70" value={overlayDraft} onChange={(event) => setOverlayDraft(Number(event.target.value))} onPointerUp={() => void saveBackground({ ...background, overlay: overlayDraft })} onKeyUp={() => void saveBackground({ ...background, overlay: overlayDraft })} />
+              </label>
+              <label className="opacity-control background-range">
+                <span>{t("background.blur")} <b>{blurDraft}px</b></span>
+                <input type="range" min="0" max="24" value={blurDraft} onChange={(event) => setBlurDraft(Number(event.target.value))} onPointerUp={() => void saveBackground({ ...background, blur: blurDraft })} onKeyUp={() => void saveBackground({ ...background, blur: blurDraft })} />
+              </label>
+            </div>
+          </section>
 
           <div className="preview-controls">
             <label className="monitor-control theme-control">

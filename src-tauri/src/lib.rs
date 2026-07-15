@@ -21,6 +21,7 @@ pub fn run() {
                 .arg("--hidden")
                 .build(),
         )
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -90,6 +91,9 @@ pub fn run() {
             commands::move_task,
             commands::get_settings,
             commands::update_settings,
+            commands::get_background_settings,
+            commands::update_background_settings,
+            commands::choose_background_image,
             commands::list_monitors,
             commands::show_wallpaper,
             commands::hide_wallpaper,

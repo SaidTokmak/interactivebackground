@@ -1,7 +1,9 @@
 import type { CSSProperties } from "react";
-import type { LanguagePreference, Task, TaskStatus, WallpaperTemplate } from "./types";
+import { convertFileSrc } from "@tauri-apps/api/core";
+import type { BackgroundSettings, LanguagePreference, Task, TaskStatus, WallpaperTemplate } from "./types";
 import appIcon from "./assets/interactivebackground-icon.png";
 import { useI18n } from "./i18n";
+import { isTauriRuntime } from "./taskApi";
 
 type Props = {
   tasks: Task[];
@@ -9,12 +11,13 @@ type Props = {
   editMode: boolean;
   opacity: number;
   language: LanguagePreference;
+  background: BackgroundSettings;
   actual?: boolean;
   onToggle: (id: number) => void;
   onMove: (id: number, status: TaskStatus) => void;
 };
 
-export function WallpaperSurface({ tasks, template, editMode, opacity, language, actual = false, onToggle, onMove }: Props) {
+export function WallpaperSurface({ tasks, template, editMode, opacity, language, background, actual = false, onToggle, onMove }: Props) {
   const { t, formatDate } = useI18n(language);
   const completed = tasks.filter((task) => task.status === "done").length;
   const progress = tasks.length === 0 ? 0 : Math.round((completed / tasks.length) * 100);
@@ -24,9 +27,19 @@ export function WallpaperSurface({ tasks, template, editMode, opacity, language,
     { label: t("kanban.inProgress"), status: "inProgress" as const },
     { label: t("kanban.done"), status: "done" as const },
   ];
+  const customImage = background.source === "custom" && background.customPath
+    ? (isTauriRuntime() ? convertFileSrc(background.customPath) : background.customPath)
+    : null;
+  const backgroundStyle = {
+    "--background-blur": `${background.blur}px`,
+    backgroundImage: customImage ? `url("${customImage}")` : undefined,
+    backgroundSize: background.fit === "stretch" ? "100% 100%" : background.fit,
+  } as CSSProperties;
 
   return (
     <div className={`desktop-preview ${actual ? "actual-surface" : ""}`}>
+      <div className={`desktop-background preset-${background.preset} ${customImage ? "custom-background" : ""}`} style={backgroundStyle} />
+      <div className="desktop-overlay" style={{ backgroundColor: `rgba(5, 8, 18, ${background.overlay / 100})` }} />
       <div className="desktop-topline">
         <span className="desktop-brand"><img src={appIcon} alt="" aria-hidden="true" />interactivebackground</span>
         <span className="desktop-mode">⌁ {editMode ? t("wallpaper.mode.edit") : t("wallpaper.mode.calm")}</span>

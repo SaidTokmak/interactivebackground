@@ -5,10 +5,12 @@ import { useTasks } from "./useTasks";
 import { useTheme } from "./useTheme";
 import { WallpaperSurface } from "./WallpaperSurface";
 import { useI18n } from "./i18n";
+import { useBackgroundSettings } from "./useBackgroundSettings";
 
 export function WallpaperWindow() {
   const { tasks, error, toggleTask, moveTask } = useTasks();
   const { settings, settingsError, saveSettings } = useSettings();
+  const { background, backgroundError } = useBackgroundSettings(settings.monitorId);
 
   useTheme(settings.theme);
   const { t, localizeError } = useI18n(settings.language);
@@ -46,8 +48,8 @@ export function WallpaperWindow() {
         <button className="wallpaper-close" onClick={() => void hideWallpaper()}>{t("wallpaper.back")}</button>
       </div>}
 
-      {(error || settingsError) && <p className="wallpaper-error" role="alert">{localizeError(error || settingsError || "")}</p>}
-      <WallpaperSurface actual tasks={tasks} template={settings.template} editMode={settings.editMode} opacity={settings.opacity} language={settings.language} onToggle={(id) => void toggleTask(id)} onMove={(id, status) => void moveTask(id, status)} />
+      {(error || settingsError || backgroundError) && <p className="wallpaper-error" role="alert">{localizeError(error || settingsError || backgroundError || "")}</p>}
+      <WallpaperSurface actual tasks={tasks} template={settings.template} editMode={settings.editMode} opacity={settings.opacity} language={settings.language} background={background} onToggle={(id) => void toggleTask(id)} onMove={(id, status) => void moveTask(id, status)} />
     </main>
   );
 }

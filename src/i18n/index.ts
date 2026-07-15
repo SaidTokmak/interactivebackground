@@ -59,11 +59,15 @@ function localizeNativeError(
     "Kullanılabilir monitör bulunamadı.": "error.noMonitor",
     "Yönetim penceresi bulunamadı.": "error.controlWindow",
     "Masaüstü katmanı şu anda yalnızca Windows'ta destekleniyor.": "error.desktopLayer",
+    "Arka plan dosya türü desteklenmiyor.": "error.backgroundType",
+    "Arka plan dosyasının içeriği seçilen görsel türüyle eşleşmiyor.": "error.backgroundType",
+    "Arka plan görseli boş olamaz ve 50 MB'ı geçemez.": "error.backgroundSize",
   };
   if (exact[message]) return t(exact[message]);
   if (message.startsWith("Veritabanı hatası:")) return t("error.database");
   if (message.startsWith("Monitör işlemi başarısız:")) return t("error.monitorOperation");
   if (message.startsWith("Pencere işlemi başarısız:")) return t("error.windowOperation");
+  if (message.startsWith("Arka plan ")) return t("error.backgroundFile");
   return t("error.native");
 }
 

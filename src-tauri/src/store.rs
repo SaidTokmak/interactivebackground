@@ -4,8 +4,13 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 
 use crate::{
     model::{Task, TaskStatus},
-    settings::{AppSettings, LanguagePreference, ThemePreference, WallpaperTemplate},
+    settings::{
+        AppSettings, BackgroundFit, BackgroundPreset, BackgroundSettings, BackgroundSource,
+        LanguagePreference, ThemePreference, WallpaperTemplate,
+    },
 };
+
+const PRIMARY_BACKGROUND_KEY: &str = "__primary__";
 
 /// SQLite bağlantısını Tauri'nin global state sistemi içinde tutar.
 ///
@@ -52,6 +57,19 @@ impl AppStore {
                          CHECK (theme_mode IN ('system', 'light', 'dark')),
                      language TEXT NOT NULL DEFAULT 'system'
                          CHECK (language IN ('system', 'tr', 'en'))
+                 );
+
+                 CREATE TABLE IF NOT EXISTS monitor_backgrounds (
+                     monitor_key TEXT PRIMARY KEY,
+                     source TEXT NOT NULL DEFAULT 'preset'
+                         CHECK (source IN ('preset', 'custom')),
+                     preset TEXT NOT NULL DEFAULT 'folded_horizon'
+                         CHECK (preset IN ('folded_horizon', 'midnight', 'graphite', 'ember')),
+                     custom_path TEXT,
+                     fit TEXT NOT NULL DEFAULT 'cover'
+                         CHECK (fit IN ('cover', 'contain', 'stretch')),
+                     overlay INTEGER NOT NULL DEFAULT 16 CHECK (overlay BETWEEN 0 AND 70),
+                     blur INTEGER NOT NULL DEFAULT 0 CHECK (blur BETWEEN 0 AND 24)
                  );
 
                  INSERT OR IGNORE INTO app_settings (id, template, opacity, edit_mode)
@@ -224,6 +242,59 @@ impl AppStore {
         Ok(settings)
     }
 
+    pub fn get_background_settings(
+        &self,
+        monitor_id: Option<String>,
+    ) -> Result<BackgroundSettings, String> {
+        let connection = self.lock_connection()?;
+        let monitor_key = background_monitor_key(monitor_id.as_deref());
+        connection
+            .query_row(
+                "SELECT source, preset, custom_path, fit, overlay, blur
+                 FROM monitor_backgrounds WHERE monitor_key = ?1",
+                [monitor_key],
+                |row| background_settings_from_row(row, monitor_id.clone()),
+            )
+            .optional()
+            .map_err(database_error)
+            .map(|settings| {
+                settings.unwrap_or_else(|| BackgroundSettings::defaults_for(monitor_id))
+            })
+    }
+
+    pub fn update_background_settings(
+        &self,
+        settings: BackgroundSettings,
+    ) -> Result<BackgroundSettings, String> {
+        let settings = settings.validate()?;
+        let connection = self.lock_connection()?;
+        let monitor_key = background_monitor_key(settings.monitor_id.as_deref());
+        connection
+            .execute(
+                "INSERT INTO monitor_backgrounds
+                    (monitor_key, source, preset, custom_path, fit, overlay, blur)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
+                 ON CONFLICT(monitor_key) DO UPDATE SET
+                    source = excluded.source,
+                    preset = excluded.preset,
+                    custom_path = excluded.custom_path,
+                    fit = excluded.fit,
+                    overlay = excluded.overlay,
+                    blur = excluded.blur",
+                params![
+                    monitor_key,
+                    settings.source.as_database_value(),
+                    settings.preset.as_database_value(),
+                    settings.custom_path,
+                    settings.fit.as_database_value(),
+                    settings.overlay,
+                    settings.blur,
+                ],
+            )
+            .map_err(database_error)?;
+        Ok(settings)
+    }
+
     fn lock_connection(&self) -> Result<std::sync::MutexGuard<'_, Connection>, String> {
         self.connection
             .lock()
@@ -305,6 +376,39 @@ fn settings_from_row(row: &Row<'_>) -> rusqlite::Result<AppSettings> {
         theme,
         language,
     })
+}
+
+fn background_settings_from_row(
+    row: &Row<'_>,
+    monitor_id: Option<String>,
+) -> rusqlite::Result<BackgroundSettings> {
+    let source_value: String = row.get(0)?;
+    let preset_value: String = row.get(1)?;
+    let fit_value: String = row.get(3)?;
+    let conversion_error = |index, message: String| {
+        rusqlite::Error::FromSqlConversionFailure(
+            index,
+            rusqlite::types::Type::Text,
+            std::io::Error::new(std::io::ErrorKind::InvalidData, message).into(),
+        )
+    };
+
+    Ok(BackgroundSettings {
+        monitor_id,
+        source: BackgroundSource::from_database_value(&source_value)
+            .map_err(|message| conversion_error(0, message))?,
+        preset: BackgroundPreset::from_database_value(&preset_value)
+            .map_err(|message| conversion_error(1, message))?,
+        custom_path: row.get(2)?,
+        fit: BackgroundFit::from_database_value(&fit_value)
+            .map_err(|message| conversion_error(3, message))?,
+        overlay: row.get(4)?,
+        blur: row.get(5)?,
+    })
+}
+
+fn background_monitor_key(monitor_id: Option<&str>) -> &str {
+    monitor_id.unwrap_or(PRIMARY_BACKGROUND_KEY)
 }
 
 fn ensure_monitor_column(connection: &Connection) -> Result<(), String> {
@@ -519,6 +623,37 @@ mod tests {
             })
             .unwrap();
         assert_eq!(store.get_settings().unwrap().monitor_id, updated.monitor_id);
+    }
+
+    #[test]
+    fn keeps_independent_background_settings_for_each_monitor() {
+        let store = AppStore::in_memory().unwrap();
+        let primary = store.get_background_settings(None).unwrap();
+        assert_eq!(primary.preset, BackgroundPreset::FoldedHorizon);
+
+        let display_two = BackgroundSettings {
+            monitor_id: Some("display-two".into()),
+            source: BackgroundSource::Custom,
+            preset: BackgroundPreset::Midnight,
+            custom_path: Some("C:\\managed\\wallpaper.webp".into()),
+            fit: BackgroundFit::Contain,
+            overlay: 32,
+            blur: 6,
+        };
+        store
+            .update_background_settings(display_two.clone())
+            .unwrap();
+
+        assert_eq!(
+            store
+                .get_background_settings(Some("display-two".into()))
+                .unwrap(),
+            display_two
+        );
+        assert_eq!(
+            store.get_background_settings(None).unwrap(),
+            BackgroundSettings::defaults_for(None)
+        );
     }
 
     #[test]

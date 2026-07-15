@@ -27,6 +27,9 @@ interactivebackground, masaüstünü gerektiğinde sakin bir görev alanına dö
 - Sistem temasını canlı izleyen kalıcı açık/koyu görünüm seçimi
 - Sistem dilini canlı izleyen, SQLite'ta kalıcı Türkçe/İngilizce dil seçimi
 - Yönetim ekranı, wallpaper, tarihler, hata mesajları ve tray menüsü için ortak yerelleştirme
+- Monitör başına kalıcı hazır tema veya kullanıcı arka planı seçimi
+- JPG, PNG ve WebP görseller için kapla/sığdır/uzat, karartma ve blur ayarları
+- Folded Horizon, Midnight, Graphite ve Ember hazır arka plan koleksiyonu
 
 ## Geliştirme
 
@@ -74,9 +77,8 @@ yer alır.
 
 ## Sıradaki adımlar
 
-1. Kullanıcı arka planları ve hazır tema koleksiyonunu hazırlamak
-2. Sınırlandırılmış sürüklenebilir widget yerleşim motorunu geliştirmek
-3. Pomodoro ve kaynaklı günlük içerik widget'larını eklemek
+1. Sınırlandırılmış sürüklenebilir widget yerleşim motorunu geliştirmek
+2. Pomodoro ve kaynaklı günlük içerik widget'larını eklemek
 
 ## Pencere mimarisi
 
