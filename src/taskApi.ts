@@ -110,4 +110,5 @@ let browserSettings: AppSettings = {
   monitorId: null,
   autoCalmMinutes: 5,
   theme: "system",
+  language: "system",
 };

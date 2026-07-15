@@ -4,12 +4,14 @@ import { useSettings } from "./useSettings";
 import { useTasks } from "./useTasks";
 import { useTheme } from "./useTheme";
 import { WallpaperSurface } from "./WallpaperSurface";
+import { useI18n } from "./i18n";
 
 export function WallpaperWindow() {
   const { tasks, error, toggleTask, moveTask } = useTasks();
   const { settings, settingsError, saveSettings } = useSettings();
 
   useTheme(settings.theme);
+  const { t, localizeError } = useI18n(settings.language);
 
   useEffect(() => {
     if (!settings.editMode || !isTauriRuntime()) return;
@@ -36,16 +38,16 @@ export function WallpaperWindow() {
   return (
     <main className="wallpaper-window">
       {settings.editMode && <div className="wallpaper-window-controls">
-        <div className="view-switch" aria-label="Wallpaper şablonu">
-          <button className={settings.template === "focus" ? "active" : ""} onClick={() => void saveSettings({ ...settings, template: "focus" })}>Odak</button>
-          <button className={settings.template === "kanban" ? "active" : ""} onClick={() => void saveSettings({ ...settings, template: "kanban" })}>Kanban</button>
+        <div className="view-switch" aria-label={t("template.wallpaperLabel")}>
+          <button className={settings.template === "focus" ? "active" : ""} onClick={() => void saveSettings({ ...settings, template: "focus" })}>{t("template.focus")}</button>
+          <button className={settings.template === "kanban" ? "active" : ""} onClick={() => void saveSettings({ ...settings, template: "kanban" })}>{t("template.kanban")}</button>
         </div>
-        <label className="wallpaper-edit-toggle"><input type="checkbox" checked={settings.editMode} onChange={(event) => void saveSettings({ ...settings, editMode: event.target.checked })} /> Etkileşim</label>
-        <button className="wallpaper-close" onClick={() => void hideWallpaper()}>Yönetim paneline dön</button>
+        <label className="wallpaper-edit-toggle"><input type="checkbox" checked={settings.editMode} onChange={(event) => void saveSettings({ ...settings, editMode: event.target.checked })} /> {t("wallpaper.interaction")}</label>
+        <button className="wallpaper-close" onClick={() => void hideWallpaper()}>{t("wallpaper.back")}</button>
       </div>}
 
-      {(error || settingsError) && <p className="wallpaper-error" role="alert">{error || settingsError}</p>}
-      <WallpaperSurface actual tasks={tasks} template={settings.template} editMode={settings.editMode} opacity={settings.opacity} onToggle={(id) => void toggleTask(id)} onMove={(id, status) => void moveTask(id, status)} />
+      {(error || settingsError) && <p className="wallpaper-error" role="alert">{localizeError(error || settingsError || "")}</p>}
+      <WallpaperSurface actual tasks={tasks} template={settings.template} editMode={settings.editMode} opacity={settings.opacity} language={settings.language} onToggle={(id) => void toggleTask(id)} onMove={(id, status) => void moveTask(id, status)} />
     </main>
   );
 }

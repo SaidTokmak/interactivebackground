@@ -10,6 +10,7 @@ const defaults: AppSettings = {
   monitorId: null,
   autoCalmMinutes: 5,
   theme: "system",
+  language: "system",
 };
 
 export function useSettings() {

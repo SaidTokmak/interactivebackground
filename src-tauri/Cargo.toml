@@ -33,6 +33,7 @@ rusqlite = { version = "=0.39.0", features = ["bundled"] }
 tauri-plugin-global-shortcut = "=2.3.1"
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
+    "Win32_Globalization",
     "Win32_UI_WindowsAndMessaging",
 ] }
 windows = { version = "0.61", features = [

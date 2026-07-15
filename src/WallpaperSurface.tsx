@@ -1,40 +1,42 @@
 import type { CSSProperties } from "react";
-import type { Task, TaskStatus, WallpaperTemplate } from "./types";
+import type { LanguagePreference, Task, TaskStatus, WallpaperTemplate } from "./types";
 import appIcon from "./assets/interactivebackground-icon.png";
+import { useI18n } from "./i18n";
 
 type Props = {
   tasks: Task[];
   template: WallpaperTemplate;
   editMode: boolean;
   opacity: number;
+  language: LanguagePreference;
   actual?: boolean;
   onToggle: (id: number) => void;
   onMove: (id: number, status: TaskStatus) => void;
 };
 
-const columns = [
-  { label: "Yapılacak", status: "todo" as const },
-  { label: "Devam ediyor", status: "inProgress" as const },
-  { label: "Bitti", status: "done" as const },
-];
-
-export function WallpaperSurface({ tasks, template, editMode, opacity, actual = false, onToggle, onMove }: Props) {
+export function WallpaperSurface({ tasks, template, editMode, opacity, language, actual = false, onToggle, onMove }: Props) {
+  const { t, formatDate } = useI18n(language);
   const completed = tasks.filter((task) => task.status === "done").length;
   const progress = tasks.length === 0 ? 0 : Math.round((completed / tasks.length) * 100);
   const nextTask = tasks.find((task) => task.status !== "done");
+  const columns = [
+    { label: t("kanban.todo"), status: "todo" as const },
+    { label: t("kanban.inProgress"), status: "inProgress" as const },
+    { label: t("kanban.done"), status: "done" as const },
+  ];
 
   return (
     <div className={`desktop-preview ${actual ? "actual-surface" : ""}`}>
       <div className="desktop-topline">
         <span className="desktop-brand"><img src={appIcon} alt="" aria-hidden="true" />interactivebackground</span>
-        <span className="desktop-mode">⌁ {editMode ? "Düzenleme modu" : "Sakin mod"}</span>
+        <span className="desktop-mode">⌁ {editMode ? t("wallpaper.mode.edit") : t("wallpaper.mode.calm")}</span>
       </div>
-      <div className="desktop-icon"><span>▱</span>Projeler</div>
-      <div className="desktop-icon second"><span>♲</span>Çöp Kutusu</div>
+      <div className="desktop-icon"><span>▱</span>{t("desktop.projects")}</div>
+      <div className="desktop-icon second"><span>♲</span>{t("desktop.trash")}</div>
 
       <section className={`wallpaper-widget ${actual ? "actual-widget" : ""} ${editMode ? "editing" : ""}`} style={{ backgroundColor: `color-mix(in srgb, var(--widget) ${opacity}%, transparent)` }}>
         <div className="widget-header">
-          <div><h3>{template === "focus" ? "Bugünün odağı" : "Ürün panosu"}</h3><span>14 Temmuz · Salı</span></div>
+          <div><h3>{template === "focus" ? t("widget.focusTitle") : t("widget.boardTitle")}</h3><span>{formatDate(new Date(), "long")}</span></div>
           <div className="progress-circle" style={{ "--progress": `${progress * 3.6}deg` } as CSSProperties}>
             <b>{completed}/{tasks.length}</b>
           </div>
@@ -52,8 +54,8 @@ export function WallpaperSurface({ tasks, template, editMode, opacity, actual = 
               ))}
             </div>
             <div className="focus-action">
-              <span>Sıradaki: {nextTask?.title ?? "Hepsi tamamlandı"}</span>
-              <button>▶ Odaklan</button>
+              <span>{nextTask ? t("widget.next", { title: nextTask.title }) : t("widget.allDone")}</span>
+              <button>{t("widget.focusButton")}</button>
             </div>
           </>
         ) : (

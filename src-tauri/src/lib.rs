@@ -38,10 +38,8 @@ pub fn run() {
             std::fs::create_dir_all(&app_data_directory)?;
             let database_path = app_data_directory.join("flowdesk.db");
             let store = AppStore::open(database_path).map_err(std::io::Error::other)?;
-            let auto_calm_minutes = store
-                .get_settings()
-                .map_err(std::io::Error::other)?
-                .auto_calm_minutes;
+            let settings = store.get_settings().map_err(std::io::Error::other)?;
+            let auto_calm_minutes = settings.auto_calm_minutes;
             app.manage(store);
             let desktop_host = DesktopHostState::default();
             desktop_host.configure_auto_calm(auto_calm_minutes);
@@ -49,7 +47,7 @@ pub fn run() {
             app.global_shortcut()
                 .register("Ctrl+Alt+Space")
                 .map_err(std::io::Error::other)?;
-            desktop_integration::setup_tray(app)?;
+            desktop_integration::setup_tray(app, settings.language)?;
             desktop_integration::setup_desktop_recovery(app.handle().clone());
             if std::env::args().any(|argument| argument == "--hidden") {
                 if let Some(control) = app.get_webview_window("control") {

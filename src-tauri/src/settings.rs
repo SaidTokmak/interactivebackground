@@ -15,6 +15,14 @@ pub enum ThemePreference {
     Dark,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum LanguagePreference {
+    System,
+    Tr,
+    En,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -24,6 +32,7 @@ pub struct AppSettings {
     pub monitor_id: Option<String>,
     pub auto_calm_minutes: Option<u16>,
     pub theme: ThemePreference,
+    pub language: LanguagePreference,
 }
 
 impl AppSettings {
@@ -73,6 +82,25 @@ impl ThemePreference {
             "light" => Ok(Self::Light),
             "dark" => Ok(Self::Dark),
             other => Err(format!("Bilinmeyen tema tercihi: {other}")),
+        }
+    }
+}
+
+impl LanguagePreference {
+    pub fn as_database_value(self) -> &'static str {
+        match self {
+            Self::System => "system",
+            Self::Tr => "tr",
+            Self::En => "en",
+        }
+    }
+
+    pub fn from_database_value(value: &str) -> Result<Self, String> {
+        match value {
+            "system" => Ok(Self::System),
+            "tr" => Ok(Self::Tr),
+            "en" => Ok(Self::En),
+            other => Err(format!("Bilinmeyen dil tercihi: {other}")),
         }
     }
 }

@@ -173,6 +173,7 @@ h2 { margin-bottom: 0; font-size: 15px; }
 .monitor-control select { width: 100%; padding: 8px 9px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: var(--field-bg); font-size: 10px; outline: none; }
 .monitor-control select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent); }
 .theme-control { min-width: 122px; }
+.language-control { min-width: 145px; }
 .auto-calm-control { min-width: 150px; }
 
 .wallpaper-window { position: relative; width: 100vw; height: 100vh; overflow: hidden; background: #6f8d80; }

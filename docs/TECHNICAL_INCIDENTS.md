@@ -270,3 +270,40 @@ seçicinin değerleri, hesaplanan CSS renkleri ve tarayıcı hata kayıtları ay
 doğrulandı. Release binary `--hidden` ile gerçek kullanıcı veritabanında
 çalıştırıldı; `theme_mode` sütununun `system` varsayılanıyla eklendiği ve mevcut
 ayarların değişmeden kaldığı salt okunur SQLite sorgusuyla teyit edildi.
+
+## FEATURE-006 — Kalıcı Türkçe/İngilizce yerelleştirme
+
+- Tarih: 15 Temmuz 2026
+- Durum: Uygulandı ve uçtan uca doğrulandı
+- Final rapora dahil et: Evet
+
+Arayüzdeki sabit metinler bileşenlerden çıkarılarak tür kontrollü anahtar
+tabanlı dil kaynaklarına taşındı. İlk paket Türkçe ve İngilizcedir; Türkçe
+kaynağı İngilizce anahtar kümesini TypeScript seviyesinde eksiksiz uygulamak
+zorundadır. Eksik veya fazla anahtar bu nedenle üretim derlemesini durdurur.
+
+`AppSettings` modeline `system`, `tr` ve `en` değerlerini taşıyan dil tercihi
+eklendi. Tercih SQLite `app_settings.language` sütununda saklanır; eski
+veritabanları açılırken sütun veri kaybı olmadan `system` varsayılanıyla eklenir.
+Mevcut `settings-changed` olayı yönetim ile wallpaper penceresini yeniden
+başlatma olmadan eşitler. Sistem modu web tarafında `navigator.language` ve
+`languagechange` olayını, Windows tray tarafında ise kullanıcının gerçek
+Windows locale değerini kullanır.
+
+Kısa ve uzun tarih gösterimleri `Intl.DateTimeFormat` ile seçili locale göre
+üretilir. Dinamik görev adları yerelleştirilmez; kullanıcının yazdığı veri
+aynen korunur. Rust katmanından gelen kullanıcıya açık hatalar frontend'de
+kararlı kategorilere çevrilerek seçili dilde gösterilir; geliştirici günlükleri
+özgün teknik ayrıntıyı korur.
+
+Tray menüsü başlangıçta seçili dille oluşturulur ve ayar değiştirildiğinde
+native menü uygulamayı yeniden başlatmadan yeniden kurulur. Türkçe/İngilizce
+tray etiketleri Rust birim testiyle, dil kaynaklarının anahtar eşitliği
+TypeScript derlemesiyle ve SQLite migration/kalıcılık davranışı depo testleriyle
+doğrulanır.
+
+Release binary `--hidden` ile gerçek kullanıcı veritabanında çalıştırıldı.
+`language` sütununun `system` varsayılanıyla eklendiği; mevcut şablon, saydamlık,
+düzenleme modu, monitör, sakin mod ve tema değerlerinin değişmeden kaldığı salt
+okunur sorguyla teyit edildi. Aynı release derlemesinden NSIS ile Türkçe ve
+İngilizce MSI paketleri de başarıyla üretildi.

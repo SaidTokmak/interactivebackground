@@ -4,7 +4,7 @@ use rusqlite::{Connection, OptionalExtension, Row, params};
 
 use crate::{
     model::{Task, TaskStatus},
-    settings::{AppSettings, ThemePreference, WallpaperTemplate},
+    settings::{AppSettings, LanguagePreference, ThemePreference, WallpaperTemplate},
 };
 
 /// SQLite bağlantısını Tauri'nin global state sistemi içinde tutar.
@@ -49,7 +49,9 @@ impl AppStore {
                      monitor_id TEXT,
                      auto_calm_minutes INTEGER DEFAULT 5,
                      theme_mode TEXT NOT NULL DEFAULT 'system'
-                         CHECK (theme_mode IN ('system', 'light', 'dark'))
+                         CHECK (theme_mode IN ('system', 'light', 'dark')),
+                     language TEXT NOT NULL DEFAULT 'system'
+                         CHECK (language IN ('system', 'tr', 'en'))
                  );
 
                  INSERT OR IGNORE INTO app_settings (id, template, opacity, edit_mode)
@@ -62,6 +64,7 @@ impl AppStore {
         ensure_monitor_column(&connection)?;
         ensure_auto_calm_column(&connection)?;
         ensure_theme_column(&connection)?;
+        ensure_language_column(&connection)?;
 
         let store = Self {
             connection: Mutex::new(connection),
@@ -189,7 +192,8 @@ impl AppStore {
         let connection = self.lock_connection()?;
         connection
             .query_row(
-                "SELECT template, opacity, edit_mode, monitor_id, auto_calm_minutes, theme_mode
+                "SELECT template, opacity, edit_mode, monitor_id, auto_calm_minutes, theme_mode,
+                        language
                  FROM app_settings WHERE id = 1",
                 [],
                 settings_from_row,
@@ -204,7 +208,7 @@ impl AppStore {
             .execute(
                 "UPDATE app_settings
                  SET template = ?1, opacity = ?2, edit_mode = ?3, monitor_id = ?4,
-                     auto_calm_minutes = ?5, theme_mode = ?6
+                     auto_calm_minutes = ?5, theme_mode = ?6, language = ?7
                  WHERE id = 1",
                 params![
                     settings.template.as_database_value(),
@@ -213,6 +217,7 @@ impl AppStore {
                     settings.monitor_id,
                     settings.auto_calm_minutes,
                     settings.theme.as_database_value(),
+                    settings.language.as_database_value(),
                 ],
             )
             .map_err(database_error)?;
@@ -282,6 +287,14 @@ fn settings_from_row(row: &Row<'_>) -> rusqlite::Result<AppSettings> {
             std::io::Error::new(std::io::ErrorKind::InvalidData, message).into(),
         )
     })?;
+    let language: String = row.get(6)?;
+    let language = LanguagePreference::from_database_value(&language).map_err(|message| {
+        rusqlite::Error::FromSqlConversionFailure(
+            6,
+            rusqlite::types::Type::Text,
+            std::io::Error::new(std::io::ErrorKind::InvalidData, message).into(),
+        )
+    })?;
 
     Ok(AppSettings {
         template,
@@ -290,6 +303,7 @@ fn settings_from_row(row: &Row<'_>) -> rusqlite::Result<AppSettings> {
         monitor_id: row.get(3)?,
         auto_calm_minutes: row.get(4)?,
         theme,
+        language,
     })
 }
 
@@ -346,6 +360,27 @@ fn ensure_theme_column(connection: &Connection) -> Result<(), String> {
         connection
             .execute(
                 "ALTER TABLE app_settings ADD COLUMN theme_mode TEXT NOT NULL DEFAULT 'system'",
+                [],
+            )
+            .map_err(database_error)?;
+    }
+    Ok(())
+}
+
+fn ensure_language_column(connection: &Connection) -> Result<(), String> {
+    let mut statement = connection
+        .prepare("PRAGMA table_info(app_settings)")
+        .map_err(database_error)?;
+    let column_names = statement
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(database_error)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(database_error)?;
+
+    if !column_names.iter().any(|name| name == "language") {
+        connection
+            .execute(
+                "ALTER TABLE app_settings ADD COLUMN language TEXT NOT NULL DEFAULT 'system'",
                 [],
             )
             .map_err(database_error)?;
@@ -430,10 +465,12 @@ mod tests {
                 monitor_id: Some("monitor:0:0:1920x1080".into()),
                 auto_calm_minutes: Some(5),
                 theme: ThemePreference::Dark,
+                language: LanguagePreference::En,
             })
             .unwrap();
         assert_eq!(updated.template, WallpaperTemplate::Kanban);
         assert_eq!(updated.theme, ThemePreference::Dark);
+        assert_eq!(updated.language, LanguagePreference::En);
         assert_eq!(store.get_settings().unwrap(), updated);
 
         let error = store
@@ -465,6 +502,10 @@ mod tests {
         assert_eq!(store.get_settings().unwrap().monitor_id, None);
         assert_eq!(store.get_settings().unwrap().auto_calm_minutes, Some(5));
         assert_eq!(store.get_settings().unwrap().theme, ThemePreference::System);
+        assert_eq!(
+            store.get_settings().unwrap().language,
+            LanguagePreference::System
+        );
 
         let updated = store
             .update_settings(AppSettings {
@@ -474,6 +515,7 @@ mod tests {
                 monitor_id: Some("display:0:0:2560x1440".into()),
                 auto_calm_minutes: Some(10),
                 theme: ThemePreference::Light,
+                language: LanguagePreference::Tr,
             })
             .unwrap();
         assert_eq!(store.get_settings().unwrap().monitor_id, updated.monitor_id);
@@ -506,6 +548,7 @@ mod tests {
                     monitor_id: Some("monitor:0:0:1920x1080".into()),
                     auto_calm_minutes: Some(15),
                     theme: ThemePreference::Dark,
+                    language: LanguagePreference::En,
                 })
                 .unwrap();
         }
@@ -527,6 +570,7 @@ mod tests {
                     monitor_id: Some("monitor:0:0:1920x1080".into()),
                     auto_calm_minutes: Some(15),
                     theme: ThemePreference::Dark,
+                    language: LanguagePreference::En,
                 }
             );
         }

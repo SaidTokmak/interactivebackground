@@ -25,6 +25,8 @@ interactivebackground, masaüstünü gerektiğinde sakin bir görev alanına dö
 - Windows oturum açılışında isteğe bağlı ve tray'e gizli otomatik başlatma
 - Uygulama arayüzü, executable ve installer genelinde ortak marka ikonu
 - Sistem temasını canlı izleyen kalıcı açık/koyu görünüm seçimi
+- Sistem dilini canlı izleyen, SQLite'ta kalıcı Türkçe/İngilizce dil seçimi
+- Yönetim ekranı, wallpaper, tarihler, hata mesajları ve tray menüsü için ortak yerelleştirme
 
 ## Geliştirme
 
@@ -72,10 +74,9 @@ yer alır.
 
 ## Sıradaki adımlar
 
-1. Türkçe/İngilizce yerelleştirme ve dil seçimini eklemek
-2. Kullanıcı arka planları ve hazır tema koleksiyonunu hazırlamak
-3. Sınırlandırılmış sürüklenebilir widget yerleşim motorunu geliştirmek
-4. Pomodoro ve kaynaklı günlük içerik widget'larını eklemek
+1. Kullanıcı arka planları ve hazır tema koleksiyonunu hazırlamak
+2. Sınırlandırılmış sürüklenebilir widget yerleşim motorunu geliştirmek
+3. Pomodoro ve kaynaklı günlük içerik widget'larını eklemek
 
 ## Pencere mimarisi
 

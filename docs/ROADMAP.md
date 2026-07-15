@@ -27,6 +27,8 @@ aynı anda doğru temaya geçer.
 
 ## Faz 2 — Yerelleştirme ve dil seçimi
 
+Durum: Tamamlandı — 15 Temmuz 2026
+
 Metinler bileşenlerden çıkarılıp anahtar tabanlı dil kaynaklarına taşınacaktır.
 İlk teslimat Türkçe ve İngilizce olur; altyapı yeni bir JSON kaynak dosyasıyla
 yeni dil eklenebilecek şekilde hazırlanır.
@@ -141,6 +143,7 @@ doğrulanmış içerik korunur ve kullanıcı özelliği tamamen kapatabilir.
 
 ## Önerilen bir sonraki çalışma
 
-Faz 1 ve Faz 2 birlikte ele alınmalıdır: önce tasarım token'ları ve tema modeli,
-hemen ardından çeviri altyapısı ile Türkçe/İngilizce dil seçimi. Böylece sonraki
-bütün ekran ve widget'lar baştan tema ve dil desteğiyle geliştirilir.
+Faz 3'e geçilmelidir: kullanıcı arka planı seçme, görüntü ölçekleme seçenekleri
+ve ilk hazır tema koleksiyonu birlikte ele alınmalıdır. Böylece Faz 4'teki
+yerleşim motoru gerçek arka planlar üzerinde okunabilirlik katmanlarıyla test
+edilebilir.

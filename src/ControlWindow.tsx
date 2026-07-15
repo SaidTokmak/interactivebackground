@@ -2,7 +2,8 @@ import { FormEvent, useEffect, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { getDesktopHostStatus, hideWallpaper, isTauriRuntime, showWallpaper } from "./taskApi";
-import type { DesktopHostStatus } from "./types";
+import type { DesktopHostStatus, LanguagePreference, ThemePreference } from "./types";
+import { useI18n } from "./i18n";
 import { useMonitors } from "./useMonitors";
 import { useSettings } from "./useSettings";
 import { useTasks } from "./useTasks";
@@ -23,6 +24,7 @@ export function ControlWindow() {
   const [integrationError, setIntegrationError] = useState("");
 
   useTheme(settings.theme);
+  const { t, formatDate, localizeError } = useI18n(settings.language);
 
   useEffect(() => setOpacityDraft(settings.opacity), [settings.opacity]);
   useEffect(() => {
@@ -102,52 +104,52 @@ export function ControlWindow() {
       <header className="app-header">
         <div className="brand-lockup">
           <img className="brand-mark" src={appIcon} alt="" aria-hidden="true" />
-          <div><strong>interactivebackground</strong><span>Masaüstü çalışma alanın</span></div>
+          <div><strong>interactivebackground</strong><span>{t("brand.subtitle")}</span></div>
         </div>
         <div className="header-actions">
-          <span className="status-dot"><i /> SQLite bağlı</span>
+          <span className="status-dot"><i /> {t("status.sqliteConnected")}</span>
           <button className="header-button" onClick={() => void toggleWallpaper()}>
-            {desktopStatus && desktopStatus.mode !== "window" ? "Masaüstünü kapat" : "Masaüstünü aç ↗"}
+            {desktopStatus && desktopStatus.mode !== "window" ? t("header.closeDesktop") : t("header.openDesktop")}
           </button>
-          <button className="icon-button" aria-label="Ayarları aç">⚙</button>
+          <button className="icon-button" aria-label={t("header.openSettings")}>⚙</button>
         </div>
       </header>
 
       <div className="workspace">
         <aside className="control-panel">
           <div className="panel-heading">
-            <div><p className="eyebrow">BUGÜN</p><h1>Akışını düzenle</h1></div>
-            <span className="date-badge">14 Temmuz</span>
+            <div><p className="eyebrow">{t("dashboard.today")}</p><h1>{t("dashboard.organize")}</h1></div>
+            <span className="date-badge">{formatDate(new Date())}</span>
           </div>
 
           <div className="progress-block">
-            <div className="progress-copy"><strong>{completed}/{tasks.length} tamamlandı</strong><span>%{progress} günlük ilerleme</span></div>
+            <div className="progress-copy"><strong>{t("progress.completed", { completed, total: tasks.length })}</strong><span>{t("progress.daily", { progress })}</span></div>
             <div className="progress-track"><span style={{ width: `${progress}%` }} /></div>
           </div>
 
           <section className="manager-section">
             <div className="section-title">
-              <h2>Görevler</h2>
-              <button className="text-button" onClick={() => setIsAdding((value) => !value)}>{isAdding ? "Vazgeç" : "+ Yeni görev"}</button>
+              <h2>{t("tasks.title")}</h2>
+              <button className="text-button" onClick={() => setIsAdding((value) => !value)}>{isAdding ? t("tasks.cancel") : t("tasks.new")}</button>
             </div>
 
             {isAdding && (
               <form className="task-form" onSubmit={submitTask}>
-                <label><span>Görev başlığı</span><input autoFocus maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Ne yapmak istiyorsun?" /></label>
-                <label className="time-field"><span>Saat</span><input type="time" value={time} onChange={(event) => setTime(event.target.value)} /></label>
-                <button className="primary-button" type="submit">Görevi ekle</button>
+                <label><span>{t("tasks.titleLabel")}</span><input autoFocus maxLength={120} value={title} onChange={(event) => setTitle(event.target.value)} placeholder={t("tasks.titlePlaceholder")} /></label>
+                <label className="time-field"><span>{t("tasks.time")}</span><input type="time" value={time} onChange={(event) => setTime(event.target.value)} /></label>
+                <button className="primary-button" type="submit">{t("tasks.add")}</button>
               </form>
             )}
 
-            {(taskError || settingsError || monitorError || integrationError || desktopStatus?.warning) && <p className="error-message" role="alert">{taskError || settingsError || monitorError || integrationError || desktopStatus?.warning}</p>}
+            {(taskError || settingsError || monitorError || integrationError || desktopStatus?.warning) && <p className="error-message" role="alert">{localizeError(taskError || settingsError || monitorError || integrationError || desktopStatus?.warning || "")}</p>}
 
             <div className="manager-list">
               {tasks.map((task) => (
                 <article className={`manager-task ${task.status === "done" ? "is-done" : ""}`} key={task.id}>
-                  <button className="check-button" onClick={() => void toggleTask(task.id)} aria-label={`${task.title} görevini tamamla`}>{task.status === "done" ? "✓" : ""}</button>
-                  <div className="manager-task-copy"><strong>{task.title}</strong><span>{statusLabel(task.status)}</span></div>
+                  <button className="check-button" onClick={() => void toggleTask(task.id)} aria-label={t("tasks.toggleAria", { title: task.title })}>{task.status === "done" ? "✓" : ""}</button>
+                  <div className="manager-task-copy"><strong>{task.title}</strong><span>{statusLabel(task.status, t)}</span></div>
                   <time>{task.scheduledFor ?? "—"}</time>
-                  <button className="delete-button" onClick={() => void removeTask(task.id)} aria-label={`${task.title} görevini sil`}>×</button>
+                  <button className="delete-button" onClick={() => void removeTask(task.id)} aria-label={t("tasks.deleteAria", { title: task.title })}>×</button>
                 </article>
               ))}
             </div>
@@ -156,33 +158,47 @@ export function ControlWindow() {
 
         <section className="preview-area">
           <div className="preview-toolbar">
-            <div><p className="eyebrow">CANLI ÖNİZLEME</p><h2>Masaüstün</h2></div>
-            <div className="view-switch" aria-label="Widget şablonu">
-              <button className={settings.template === "focus" ? "active" : ""} onClick={() => void saveSettings({ ...settings, template: "focus" })}>Odak</button>
-              <button className={settings.template === "kanban" ? "active" : ""} onClick={() => void saveSettings({ ...settings, template: "kanban" })}>Kanban</button>
+            <div><p className="eyebrow">{t("preview.live")}</p><h2>{t("preview.desktop")}</h2></div>
+            <div className="view-switch" aria-label={t("template.label")}>
+              <button className={settings.template === "focus" ? "active" : ""} onClick={() => void saveSettings({ ...settings, template: "focus" })}>{t("template.focus")}</button>
+              <button className={settings.template === "kanban" ? "active" : ""} onClick={() => void saveSettings({ ...settings, template: "kanban" })}>{t("template.kanban")}</button>
             </div>
           </div>
 
-          <WallpaperSurface tasks={tasks} template={settings.template} editMode={settings.editMode} opacity={opacityDraft} onToggle={(id) => void toggleTask(id)} onMove={(id, status) => void moveTask(id, status)} />
+          <WallpaperSurface tasks={tasks} template={settings.template} editMode={settings.editMode} opacity={opacityDraft} language={settings.language} onToggle={(id) => void toggleTask(id)} onMove={(id, status) => void moveTask(id, status)} />
 
           <div className="preview-controls">
             <label className="monitor-control theme-control">
-              <span>Görünüm</span>
+              <span>{t("theme.label")}</span>
               <select
                 value={settings.theme}
                 onChange={(event) => void saveSettings({
                   ...settings,
-                  theme: event.target.value as import("./types").ThemePreference,
+                  theme: event.target.value as ThemePreference,
                 })}
               >
-                <option value="system">Sistem</option>
-                <option value="light">Açık</option>
-                <option value="dark">Koyu</option>
+                <option value="system">{t("theme.system")}</option>
+                <option value="light">{t("theme.light")}</option>
+                <option value="dark">{t("theme.dark")}</option>
+              </select>
+            </label>
+            <label className="monitor-control language-control">
+              <span>{t("language.label")}</span>
+              <select
+                value={settings.language}
+                onChange={(event) => void saveSettings({
+                  ...settings,
+                  language: event.target.value as LanguagePreference,
+                })}
+              >
+                <option value="system">{t("language.system")}</option>
+                <option value="tr">{t("language.tr")}</option>
+                <option value="en">{t("language.en")}</option>
               </select>
             </label>
             <label className="switch-row">
               <input type="checkbox" checked={settings.editMode} onChange={(event) => void saveSettings({ ...settings, editMode: event.target.checked })} />
-              <span><b>Düzenleme modu</b><small>{settings.editMode ? "Tıklanabilir overlay açık" : "İkonların arkasında sakin görünüm"}</small></span>
+              <span><b>{t("edit.label")}</b><small>{settings.editMode ? t("edit.activeHelp") : t("edit.calmHelp")}</small></span>
             </label>
             <label className="switch-row autostart-control">
               <input
@@ -190,10 +206,10 @@ export function ControlWindow() {
                 checked={autoStartEnabled}
                 onChange={(event) => void updateAutoStart(event.target.checked)}
               />
-              <span><b>Windows ile başlat</b><small>Açılışta sistem tepsisinde sessizce çalışır</small></span>
+              <span><b>{t("autostart.label")}</b><small>{t("autostart.help")}</small></span>
             </label>
             <label className="opacity-control">
-              <span>Saydamlık <b>%{opacityDraft}</b></span>
+              <span>{t("opacity.label")} <b>%{opacityDraft}</b></span>
               <input
                 type="range"
                 min="58"
@@ -205,17 +221,17 @@ export function ControlWindow() {
               />
             </label>
             <label className="monitor-control">
-              <span>Hedef ekran</span>
+              <span>{t("monitor.label")}</span>
               <select value={selectedMonitorId(settings.monitorId, monitors)} onChange={(event) => void saveSettings({ ...settings, monitorId: event.target.value })}>
                 {monitors.map((monitor) => (
                   <option value={monitor.id} key={monitor.id}>
-                    {monitor.name}{monitor.isPrimary ? " · Ana" : ""} — {monitor.width}×{monitor.height} @{monitor.scaleFactor.toFixed(2)}x
+                    {monitor.id.startsWith("browser:") ? t("monitor.browserDisplay") : monitor.name}{monitor.isPrimary ? ` · ${t("monitor.primary")}` : ""} — {monitor.width}×{monitor.height} @{monitor.scaleFactor.toFixed(2)}x
                   </option>
                 ))}
               </select>
             </label>
             <label className="monitor-control auto-calm-control">
-              <span>Otomatik sakin mod</span>
+              <span>{t("autoCalm.label")}</span>
               <select
                 value={settings.autoCalmMinutes ?? 0}
                 onChange={(event) => void saveSettings({
@@ -223,11 +239,11 @@ export function ControlWindow() {
                   autoCalmMinutes: Number(event.target.value) || null,
                 })}
               >
-                <option value={0}>Kapalı</option>
-                <option value={1}>1 dakika</option>
-                <option value={5}>5 dakika</option>
-                <option value={10}>10 dakika</option>
-                <option value={15}>15 dakika</option>
+                <option value={0}>{t("autoCalm.off")}</option>
+                <option value={1}>{t("autoCalm.minute")}</option>
+                <option value={5}>{t("autoCalm.minutes", { count: 5 })}</option>
+                <option value={10}>{t("autoCalm.minutes", { count: 10 })}</option>
+                <option value={15}>{t("autoCalm.minutes", { count: 15 })}</option>
               </select>
             </label>
           </div>
@@ -242,8 +258,11 @@ function selectedMonitorId(currentId: string | null, monitors: import("./types")
   return monitors.find((monitor) => monitor.isPrimary)?.id ?? monitors[0]?.id ?? "";
 }
 
-function statusLabel(status: "todo" | "inProgress" | "done") {
-  if (status === "inProgress") return "Devam ediyor";
-  if (status === "done") return "Tamamlandı";
-  return "Yapılacak";
+function statusLabel(
+  status: "todo" | "inProgress" | "done",
+  t: (key: "status.todo" | "status.inProgress" | "status.done") => string,
+) {
+  if (status === "inProgress") return t("status.inProgress");
+  if (status === "done") return t("status.done");
+  return t("status.todo");
 }

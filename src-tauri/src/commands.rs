@@ -66,6 +66,13 @@ pub fn update_settings(
     let previous = store.get_settings()?;
     let settings = store.update_settings(settings)?;
     desktop_host.configure_auto_calm(settings.auto_calm_minutes);
+    if previous.language != settings.language {
+        if let Err(error) =
+            crate::desktop_integration::update_tray_language(&app, settings.language)
+        {
+            eprintln!("Sistem tepsisi dili güncellenemedi: {error}");
+        }
+    }
     notify_settings_change(&app);
     // Ayar veritabanına başarıyla yazıldı. Anlık pencere taşıma ikincil bir yan
     // etkidir; başarısız olması kalıcı kaydı başarısız gibi göstermemelidir.
