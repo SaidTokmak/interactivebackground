@@ -66,12 +66,16 @@ henüz kod imzalama sertifikasına sahip değildir; bu nedenle Windows ilk
 
 Geliştirme sırasında çözülen önemli hatalar ve proje sonu raporuna aktarılacak
 teknik kararlar [teknik olay günlüğünde](docs/TECHNICAL_INCIDENTS.md) tutulur.
+Planlanan ürün aşamaları ve kabul ölçütleri [ürün yol haritasında](docs/ROADMAP.md)
+yer alır.
 
 ## Sıradaki adımlar
 
-1. İlk kullanım karşılama ve izin akışını hazırlamak
-2. Sürüm güncelleme mekanizmasını hazırlamak
-3. İlk yayın için kod imzalama ve release otomasyonunu hazırlamak
+1. Sistem/açık/koyu tema altyapısını hazırlamak
+2. Türkçe/İngilizce yerelleştirme ve dil seçimini eklemek
+3. Kullanıcı arka planları ve hazır tema koleksiyonunu hazırlamak
+4. Sınırlandırılmış sürüklenebilir widget yerleşim motorunu geliştirmek
+5. Pomodoro ve kaynaklı günlük içerik widget'larını eklemek
 
 ## Pencere mimarisi
 
