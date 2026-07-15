@@ -1,4 +1,9 @@
-use std::{path::Path, sync::Mutex};
+use std::{
+    collections::HashSet,
+    path::Path,
+    sync::Mutex,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use rusqlite::{Connection, OptionalExtension, Row, params};
 
@@ -6,7 +11,8 @@ use crate::{
     model::{Task, TaskStatus},
     settings::{
         AppSettings, BackgroundFit, BackgroundPreset, BackgroundSettings, BackgroundSource,
-        LanguagePreference, ThemePreference, WallpaperTemplate, WidgetLayout,
+        DesktopWidget, LanguagePreference, PomodoroAction, PomodoroMode, PomodoroState,
+        ThemePreference, WallpaperTemplate, WidgetKind, WidgetLayout,
     },
 };
 
@@ -32,7 +38,7 @@ impl AppStore {
         Self::from_connection(connection)
     }
 
-    fn from_connection(connection: Connection) -> Result<Self, String> {
+    fn from_connection(mut connection: Connection) -> Result<Self, String> {
         connection
             .execute_batch(
                 "PRAGMA foreign_keys = ON;
@@ -84,6 +90,39 @@ impl AppStore {
                      PRIMARY KEY (monitor_key, template)
                  );
 
+                 CREATE TABLE IF NOT EXISTS desktop_widgets (
+                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     monitor_key TEXT NOT NULL,
+                     kind TEXT NOT NULL CHECK (kind IN ('focus', 'kanban', 'pomodoro', 'clock', 'date')),
+                     x REAL NOT NULL,
+                     y REAL NOT NULL,
+                     width REAL NOT NULL,
+                     height REAL NOT NULL,
+                     locked INTEGER NOT NULL DEFAULT 0 CHECK (locked IN (0, 1)),
+                     snap_to_grid INTEGER NOT NULL DEFAULT 1 CHECK (snap_to_grid IN (0, 1)),
+                     visible INTEGER NOT NULL DEFAULT 1 CHECK (visible IN (0, 1)),
+                     sort_order INTEGER NOT NULL DEFAULT 0
+                 );
+
+                 CREATE INDEX IF NOT EXISTS desktop_widgets_monitor_order
+                 ON desktop_widgets (monitor_key, sort_order, id);
+
+                 CREATE TABLE IF NOT EXISTS pomodoro_states (
+                     widget_id INTEGER PRIMARY KEY,
+                     mode TEXT NOT NULL DEFAULT 'work' CHECK (mode IN ('work', 'break')),
+                     work_minutes INTEGER NOT NULL DEFAULT 25 CHECK (work_minutes BETWEEN 1 AND 180),
+                     break_minutes INTEGER NOT NULL DEFAULT 5 CHECK (break_minutes BETWEEN 1 AND 60),
+                     remaining_seconds INTEGER NOT NULL DEFAULT 1500,
+                     running INTEGER NOT NULL DEFAULT 0 CHECK (running IN (0, 1)),
+                     ends_at INTEGER,
+                     FOREIGN KEY (widget_id) REFERENCES desktop_widgets(id) ON DELETE CASCADE
+                 );
+
+                 CREATE TABLE IF NOT EXISTS app_meta (
+                     key TEXT PRIMARY KEY,
+                     value TEXT NOT NULL
+                 );
+
                  INSERT OR IGNORE INTO app_settings (id, template, opacity, edit_mode)
                  VALUES (1, 'focus', 82, 0);",
             )
@@ -95,6 +134,7 @@ impl AppStore {
         ensure_auto_calm_column(&connection)?;
         ensure_theme_column(&connection)?;
         ensure_language_column(&connection)?;
+        migrate_widget_layouts(&mut connection)?;
 
         let store = Self {
             connection: Mutex::new(connection),
@@ -377,6 +417,271 @@ impl AppStore {
         Ok(WidgetLayout::defaults_for(monitor_id, template))
     }
 
+    pub fn list_desktop_widgets(
+        &self,
+        monitor_id: Option<String>,
+    ) -> Result<Vec<DesktopWidget>, String> {
+        let connection = self.lock_connection()?;
+        let monitor_key = background_monitor_key(monitor_id.as_deref());
+        let mut statement = connection
+            .prepare(
+                "SELECT id, kind, x, y, width, height, locked, snap_to_grid, visible, sort_order
+                 FROM desktop_widgets WHERE monitor_key = ?1
+                 ORDER BY sort_order ASC, id ASC",
+            )
+            .map_err(database_error)?;
+        let rows = statement
+            .query_map([monitor_key], |row| {
+                desktop_widget_from_row(row, monitor_id.clone())
+            })
+            .map_err(database_error)?;
+        rows.map(|row| row.map_err(database_error)).collect()
+    }
+
+    pub fn add_desktop_widget(
+        &self,
+        monitor_id: Option<String>,
+        kind: WidgetKind,
+    ) -> Result<DesktopWidget, String> {
+        let connection = self.lock_connection()?;
+        let monitor_key = background_monitor_key(monitor_id.as_deref()).to_string();
+        let count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM desktop_widgets WHERE monitor_key = ?1",
+                [&monitor_key],
+                |row| row.get(0),
+            )
+            .map_err(database_error)?;
+        if count >= 12 {
+            return Err("Bir monitörde en fazla 12 widget kullanılabilir.".into());
+        }
+        let sort_order: i64 = connection
+            .query_row(
+                "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM desktop_widgets WHERE monitor_key = ?1",
+                [&monitor_key],
+                |row| row.get(0),
+            )
+            .map_err(database_error)?;
+        let mut widget = DesktopWidget::defaults_for(monitor_id, kind, sort_order).validate()?;
+        insert_desktop_widget(&connection, &monitor_key, &widget)?;
+        widget.id = connection.last_insert_rowid();
+        ensure_pomodoro_state(&connection, &widget)?;
+        Ok(widget)
+    }
+
+    pub fn update_desktop_widget(&self, widget: DesktopWidget) -> Result<DesktopWidget, String> {
+        let widget = widget.validate()?;
+        if widget.id <= 0 {
+            return Err("Widget kimliği geçersiz.".into());
+        }
+        let connection = self.lock_connection()?;
+        let changed = connection
+            .execute(
+                "UPDATE desktop_widgets SET
+                    monitor_key = ?1, kind = ?2, x = ?3, y = ?4, width = ?5,
+                    height = ?6, locked = ?7, snap_to_grid = ?8, visible = ?9,
+                    sort_order = ?10
+                 WHERE id = ?11",
+                params![
+                    background_monitor_key(widget.monitor_id.as_deref()),
+                    widget.kind.as_database_value(),
+                    widget.x,
+                    widget.y,
+                    widget.width,
+                    widget.height,
+                    widget.locked,
+                    widget.snap_to_grid,
+                    widget.visible,
+                    widget.sort_order,
+                    widget.id,
+                ],
+            )
+            .map_err(database_error)?;
+        if changed == 0 {
+            return Err("Widget bulunamadı.".into());
+        }
+        ensure_pomodoro_state(&connection, &widget)?;
+        Ok(widget)
+    }
+
+    pub fn duplicate_desktop_widget(&self, id: i64) -> Result<DesktopWidget, String> {
+        let connection = self.lock_connection()?;
+        let original = find_desktop_widget(&connection, id)?;
+        let monitor_key = background_monitor_key(original.monitor_id.as_deref()).to_string();
+        let count: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM desktop_widgets WHERE monitor_key = ?1",
+                [&monitor_key],
+                |row| row.get(0),
+            )
+            .map_err(database_error)?;
+        if count >= 12 {
+            return Err("Bir monitörde en fazla 12 widget kullanılabilir.".into());
+        }
+        let sort_order: i64 = connection
+            .query_row(
+                "SELECT COALESCE(MAX(sort_order), -1) + 1 FROM desktop_widgets WHERE monitor_key = ?1",
+                [&monitor_key],
+                |row| row.get(0),
+            )
+            .map_err(database_error)?;
+        let mut duplicate = original;
+        duplicate.id = 0;
+        duplicate.sort_order = sort_order;
+        duplicate.locked = false;
+        duplicate.x = (duplicate.x + 0.025).min(0.985 - duplicate.width);
+        duplicate.y = (duplicate.y + 0.025).min(0.985 - duplicate.height);
+        duplicate = duplicate.validate()?;
+        insert_desktop_widget(&connection, &monitor_key, &duplicate)?;
+        duplicate.id = connection.last_insert_rowid();
+        ensure_pomodoro_state(&connection, &duplicate)?;
+        if duplicate.kind == WidgetKind::Pomodoro {
+            connection
+                .execute(
+                    "UPDATE pomodoro_states SET
+                        mode = (SELECT mode FROM pomodoro_states WHERE widget_id = ?1),
+                        work_minutes = (SELECT work_minutes FROM pomodoro_states WHERE widget_id = ?1),
+                        break_minutes = (SELECT break_minutes FROM pomodoro_states WHERE widget_id = ?1),
+                        remaining_seconds = (SELECT remaining_seconds FROM pomodoro_states WHERE widget_id = ?1),
+                        running = 0, ends_at = NULL
+                     WHERE widget_id = ?2",
+                    params![id, duplicate.id],
+                )
+                .map_err(database_error)?;
+        }
+        Ok(duplicate)
+    }
+
+    pub fn delete_desktop_widget(&self, id: i64) -> Result<(), String> {
+        let connection = self.lock_connection()?;
+        let changed = connection
+            .execute("DELETE FROM desktop_widgets WHERE id = ?1", [id])
+            .map_err(database_error)?;
+        if changed == 0 {
+            return Err("Widget bulunamadı.".into());
+        }
+        Ok(())
+    }
+
+    pub fn reorder_desktop_widgets(
+        &self,
+        monitor_id: Option<String>,
+        ordered_ids: Vec<i64>,
+    ) -> Result<Vec<DesktopWidget>, String> {
+        let mut connection = self.lock_connection()?;
+        let monitor_key = background_monitor_key(monitor_id.as_deref()).to_string();
+        let expected: i64 = connection
+            .query_row(
+                "SELECT COUNT(*) FROM desktop_widgets WHERE monitor_key = ?1",
+                [&monitor_key],
+                |row| row.get(0),
+            )
+            .map_err(database_error)?;
+        if expected != ordered_ids.len() as i64 {
+            return Err("Widget sırası eksik veya geçersiz.".into());
+        }
+        if ordered_ids.iter().copied().collect::<HashSet<_>>().len() != ordered_ids.len() {
+            return Err("Widget sırası eksik veya geçersiz.".into());
+        }
+        let transaction = connection.transaction().map_err(database_error)?;
+        for (index, id) in ordered_ids.iter().enumerate() {
+            let changed = transaction
+                .execute(
+                    "UPDATE desktop_widgets SET sort_order = ?1 WHERE id = ?2 AND monitor_key = ?3",
+                    params![index as i64, id, &monitor_key],
+                )
+                .map_err(database_error)?;
+            if changed == 0 {
+                return Err("Widget sırası eksik veya geçersiz.".into());
+            }
+        }
+        transaction.commit().map_err(database_error)?;
+        drop(connection);
+        self.list_desktop_widgets(monitor_id)
+    }
+
+    pub fn get_pomodoro_state(&self, widget_id: i64) -> Result<PomodoroState, String> {
+        let connection = self.lock_connection()?;
+        let widget = find_desktop_widget(&connection, widget_id)?;
+        if widget.kind != WidgetKind::Pomodoro {
+            return Err("Seçilen widget Pomodoro değil.".into());
+        }
+        ensure_pomodoro_state(&connection, &widget)?;
+        normalize_pomodoro(&connection, widget_id)
+    }
+
+    pub fn update_pomodoro(
+        &self,
+        widget_id: i64,
+        action: PomodoroAction,
+    ) -> Result<PomodoroState, String> {
+        let connection = self.lock_connection()?;
+        let widget = find_desktop_widget(&connection, widget_id)?;
+        if widget.kind != WidgetKind::Pomodoro {
+            return Err("Seçilen widget Pomodoro değil.".into());
+        }
+        ensure_pomodoro_state(&connection, &widget)?;
+        let mut state = normalize_pomodoro(&connection, widget_id)?;
+        let now = unix_timestamp()?;
+        match action {
+            PomodoroAction::Start => {
+                state.running = true;
+                state.ends_at = Some(now + state.remaining_seconds.max(1));
+            }
+            PomodoroAction::Pause => {
+                state.running = false;
+                state.ends_at = None;
+            }
+            PomodoroAction::Reset => {
+                state.mode = PomodoroMode::Work;
+                state.remaining_seconds = i64::from(state.work_minutes) * 60;
+                state.running = false;
+                state.ends_at = None;
+            }
+            PomodoroAction::Skip => {
+                state.mode = if state.mode == PomodoroMode::Work {
+                    PomodoroMode::Break
+                } else {
+                    PomodoroMode::Work
+                };
+                state.remaining_seconds = mode_duration(&state);
+                state.running = false;
+                state.ends_at = None;
+            }
+            PomodoroAction::Complete => {}
+        }
+        write_pomodoro_state(&connection, &state)?;
+        Ok(state)
+    }
+
+    pub fn configure_pomodoro(
+        &self,
+        widget_id: i64,
+        work_minutes: u16,
+        break_minutes: u16,
+    ) -> Result<PomodoroState, String> {
+        if !(1..=180).contains(&work_minutes) || !(1..=60).contains(&break_minutes) {
+            return Err("Pomodoro süreleri izin verilen aralıkta değil.".into());
+        }
+        let connection = self.lock_connection()?;
+        let widget = find_desktop_widget(&connection, widget_id)?;
+        if widget.kind != WidgetKind::Pomodoro {
+            return Err("Seçilen widget Pomodoro değil.".into());
+        }
+        ensure_pomodoro_state(&connection, &widget)?;
+        let state = PomodoroState {
+            widget_id,
+            mode: PomodoroMode::Work,
+            work_minutes,
+            break_minutes,
+            remaining_seconds: i64::from(work_minutes) * 60,
+            running: false,
+            ends_at: None,
+        };
+        write_pomodoro_state(&connection, &state)?;
+        Ok(state)
+    }
+
     fn lock_connection(&self) -> Result<std::sync::MutexGuard<'_, Connection>, String> {
         self.connection
             .lock()
@@ -506,6 +811,206 @@ fn widget_layout_from_row(
     })
 }
 
+fn desktop_widget_from_row(
+    row: &Row<'_>,
+    monitor_id: Option<String>,
+) -> rusqlite::Result<DesktopWidget> {
+    let kind_value: String = row.get(1)?;
+    let kind = WidgetKind::from_database_value(&kind_value).map_err(|message| {
+        rusqlite::Error::FromSqlConversionFailure(
+            1,
+            rusqlite::types::Type::Text,
+            std::io::Error::new(std::io::ErrorKind::InvalidData, message).into(),
+        )
+    })?;
+    Ok(DesktopWidget {
+        id: row.get(0)?,
+        monitor_id,
+        kind,
+        x: row.get(2)?,
+        y: row.get(3)?,
+        width: row.get(4)?,
+        height: row.get(5)?,
+        locked: row.get(6)?,
+        snap_to_grid: row.get(7)?,
+        visible: row.get(8)?,
+        sort_order: row.get(9)?,
+    })
+}
+
+fn find_desktop_widget(connection: &Connection, id: i64) -> Result<DesktopWidget, String> {
+    let (monitor_key, mut widget): (String, DesktopWidget) = connection
+        .query_row(
+            "SELECT monitor_key, id, kind, x, y, width, height, locked, snap_to_grid, visible, sort_order
+             FROM desktop_widgets WHERE id = ?1",
+            [id],
+            |row| {
+                let monitor_key: String = row.get(0)?;
+                let monitor_id = if monitor_key == PRIMARY_BACKGROUND_KEY {
+                    None
+                } else {
+                    Some(monitor_key.clone())
+                };
+                let kind_value: String = row.get(2)?;
+                let kind = WidgetKind::from_database_value(&kind_value).map_err(|message| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        2,
+                        rusqlite::types::Type::Text,
+                        std::io::Error::new(std::io::ErrorKind::InvalidData, message).into(),
+                    )
+                })?;
+                Ok((
+                    monitor_key,
+                    DesktopWidget {
+                        id: row.get(1)?,
+                        monitor_id,
+                        kind,
+                        x: row.get(3)?,
+                        y: row.get(4)?,
+                        width: row.get(5)?,
+                        height: row.get(6)?,
+                        locked: row.get(7)?,
+                        snap_to_grid: row.get(8)?,
+                        visible: row.get(9)?,
+                        sort_order: row.get(10)?,
+                    },
+                ))
+            },
+        )
+        .optional()
+        .map_err(database_error)?
+        .ok_or_else(|| "Widget bulunamadı.".to_string())?;
+    widget.monitor_id = if monitor_key == PRIMARY_BACKGROUND_KEY {
+        None
+    } else {
+        Some(monitor_key)
+    };
+    Ok(widget)
+}
+
+fn insert_desktop_widget(
+    connection: &Connection,
+    monitor_key: &str,
+    widget: &DesktopWidget,
+) -> Result<(), String> {
+    connection
+        .execute(
+            "INSERT INTO desktop_widgets
+                (monitor_key, kind, x, y, width, height, locked, snap_to_grid, visible, sort_order)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                monitor_key,
+                widget.kind.as_database_value(),
+                widget.x,
+                widget.y,
+                widget.width,
+                widget.height,
+                widget.locked,
+                widget.snap_to_grid,
+                widget.visible,
+                widget.sort_order,
+            ],
+        )
+        .map_err(database_error)?;
+    Ok(())
+}
+
+fn ensure_pomodoro_state(connection: &Connection, widget: &DesktopWidget) -> Result<(), String> {
+    if widget.kind != WidgetKind::Pomodoro {
+        return Ok(());
+    }
+    connection
+        .execute(
+            "INSERT OR IGNORE INTO pomodoro_states (widget_id) VALUES (?1)",
+            [widget.id],
+        )
+        .map_err(database_error)?;
+    Ok(())
+}
+
+fn normalize_pomodoro(connection: &Connection, widget_id: i64) -> Result<PomodoroState, String> {
+    let mut state = connection
+        .query_row(
+            "SELECT mode, work_minutes, break_minutes, remaining_seconds, running, ends_at
+             FROM pomodoro_states WHERE widget_id = ?1",
+            [widget_id],
+            |row| {
+                let mode_value: String = row.get(0)?;
+                let mode = PomodoroMode::from_database_value(&mode_value).map_err(|message| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        0,
+                        rusqlite::types::Type::Text,
+                        std::io::Error::new(std::io::ErrorKind::InvalidData, message).into(),
+                    )
+                })?;
+                Ok(PomodoroState {
+                    widget_id,
+                    mode,
+                    work_minutes: row.get(1)?,
+                    break_minutes: row.get(2)?,
+                    remaining_seconds: row.get(3)?,
+                    running: row.get(4)?,
+                    ends_at: row.get(5)?,
+                })
+            },
+        )
+        .map_err(database_error)?;
+    if state.running {
+        let now = unix_timestamp()?;
+        let remaining = state.ends_at.unwrap_or(now) - now;
+        if remaining > 0 {
+            state.remaining_seconds = remaining;
+        } else {
+            state.mode = if state.mode == PomodoroMode::Work {
+                PomodoroMode::Break
+            } else {
+                PomodoroMode::Work
+            };
+            state.remaining_seconds = mode_duration(&state);
+            state.running = false;
+            state.ends_at = None;
+        }
+        write_pomodoro_state(connection, &state)?;
+    }
+    Ok(state)
+}
+
+fn write_pomodoro_state(connection: &Connection, state: &PomodoroState) -> Result<(), String> {
+    connection
+        .execute(
+            "UPDATE pomodoro_states SET mode = ?1, work_minutes = ?2, break_minutes = ?3,
+                remaining_seconds = ?4, running = ?5, ends_at = ?6
+             WHERE widget_id = ?7",
+            params![
+                state.mode.as_database_value(),
+                state.work_minutes,
+                state.break_minutes,
+                state.remaining_seconds,
+                state.running,
+                state.ends_at,
+                state.widget_id,
+            ],
+        )
+        .map_err(database_error)?;
+    Ok(())
+}
+
+fn mode_duration(state: &PomodoroState) -> i64 {
+    i64::from(if state.mode == PomodoroMode::Work {
+        state.work_minutes
+    } else {
+        state.break_minutes
+    }) * 60
+}
+
+fn unix_timestamp() -> Result<i64, String> {
+    let seconds = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_err(|error| format!("Sistem saati okunamadı: {error}"))?
+        .as_secs();
+    i64::try_from(seconds).map_err(|error| format!("Sistem saati dönüştürülemedi: {error}"))
+}
+
 fn background_monitor_key(monitor_id: Option<&str>) -> &str {
     monitor_id.unwrap_or(PRIMARY_BACKGROUND_KEY)
 }
@@ -589,6 +1094,61 @@ fn ensure_language_column(connection: &Connection) -> Result<(), String> {
             .map_err(database_error)?;
     }
     Ok(())
+}
+
+fn migrate_widget_layouts(connection: &mut Connection) -> Result<(), String> {
+    let transaction = connection.transaction().map_err(database_error)?;
+    let migrated = transaction
+        .query_row(
+            "SELECT value FROM app_meta WHERE key = 'desktop_widgets_v1'",
+            [],
+            |row| row.get::<_, String>(0),
+        )
+        .optional()
+        .map_err(database_error)?
+        .is_some();
+    if migrated {
+        return Ok(());
+    }
+
+    transaction
+        .execute(
+            "INSERT INTO desktop_widgets
+                (monitor_key, kind, x, y, width, height, locked, snap_to_grid, visible, sort_order)
+             SELECT monitor_key, template, x, y, width, height, locked, snap_to_grid, 1,
+                    ROW_NUMBER() OVER (PARTITION BY monitor_key ORDER BY template) - 1
+             FROM widget_layouts",
+            [],
+        )
+        .map_err(database_error)?;
+
+    let count: i64 = transaction
+        .query_row("SELECT COUNT(*) FROM desktop_widgets", [], |row| row.get(0))
+        .map_err(database_error)?;
+    if count == 0 {
+        let (template, monitor_id): (String, Option<String>) = transaction
+            .query_row(
+                "SELECT template, monitor_id FROM app_settings WHERE id = 1",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(database_error)?;
+        let kind = WidgetKind::from_database_value(&template)?;
+        let widget = DesktopWidget::defaults_for(monitor_id.clone(), kind, 0).validate()?;
+        insert_desktop_widget(
+            &transaction,
+            background_monitor_key(monitor_id.as_deref()),
+            &widget,
+        )?;
+    }
+
+    transaction
+        .execute(
+            "INSERT INTO app_meta (key, value) VALUES ('desktop_widgets_v1', 'done')",
+            [],
+        )
+        .map_err(database_error)?;
+    transaction.commit().map_err(database_error)
 }
 
 fn normalize_time(value: Option<String>) -> Option<String> {
@@ -825,6 +1385,137 @@ mod tests {
             })
             .unwrap_err();
         assert_eq!(oversized, "Widget boyutu izin verilen aralıkta olmalıdır.");
+    }
+
+    #[test]
+    fn manages_independent_desktop_widget_catalogs() {
+        let store = AppStore::in_memory().unwrap();
+        assert_eq!(store.list_desktop_widgets(None).unwrap().len(), 1);
+
+        let clock = store
+            .add_desktop_widget(Some("display-two".into()), WidgetKind::Clock)
+            .unwrap();
+        let duplicate = store.duplicate_desktop_widget(clock.id).unwrap();
+        let pomodoro = store
+            .add_desktop_widget(Some("display-two".into()), WidgetKind::Pomodoro)
+            .unwrap();
+        assert_eq!(store.list_desktop_widgets(None).unwrap().len(), 1);
+        assert_eq!(
+            store
+                .list_desktop_widgets(Some("display-two".into()))
+                .unwrap()
+                .len(),
+            3
+        );
+
+        let reordered = store
+            .reorder_desktop_widgets(
+                Some("display-two".into()),
+                vec![pomodoro.id, duplicate.id, clock.id],
+            )
+            .unwrap();
+        assert_eq!(
+            reordered.iter().map(|widget| widget.id).collect::<Vec<_>>(),
+            vec![pomodoro.id, duplicate.id, clock.id]
+        );
+        store.delete_desktop_widget(duplicate.id).unwrap();
+        assert_eq!(
+            store
+                .list_desktop_widgets(Some("display-two".into()))
+                .unwrap()
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn keeps_pomodoro_time_in_the_native_store() {
+        let store = AppStore::in_memory().unwrap();
+        let widget = store
+            .add_desktop_widget(None, WidgetKind::Pomodoro)
+            .unwrap();
+        let configured = store.configure_pomodoro(widget.id, 50, 10).unwrap();
+        assert_eq!(configured.remaining_seconds, 3_000);
+
+        let running = store
+            .update_pomodoro(widget.id, PomodoroAction::Start)
+            .unwrap();
+        assert!(running.running);
+        assert!(running.ends_at.is_some());
+
+        let paused = store
+            .update_pomodoro(widget.id, PomodoroAction::Pause)
+            .unwrap();
+        assert!(!paused.running);
+        assert!(paused.remaining_seconds > 0);
+
+        let skipped = store
+            .update_pomodoro(widget.id, PomodoroAction::Skip)
+            .unwrap();
+        assert_eq!(skipped.mode, PomodoroMode::Break);
+        assert_eq!(skipped.remaining_seconds, 600);
+
+        let reset = store
+            .update_pomodoro(widget.id, PomodoroAction::Reset)
+            .unwrap();
+        assert_eq!(reset.mode, PomodoroMode::Work);
+        assert_eq!(reset.remaining_seconds, 3_000);
+
+        {
+            let connection = store.lock_connection().unwrap();
+            connection
+                .execute(
+                    "UPDATE pomodoro_states SET running = 1, ends_at = 0 WHERE widget_id = ?1",
+                    [widget.id],
+                )
+                .unwrap();
+        }
+        let elapsed = store.get_pomodoro_state(widget.id).unwrap();
+        assert_eq!(elapsed.mode, PomodoroMode::Break);
+        assert_eq!(elapsed.remaining_seconds, 600);
+        assert!(!elapsed.running);
+
+        let duplicate = store.duplicate_desktop_widget(widget.id).unwrap();
+        let duplicate_state = store.get_pomodoro_state(duplicate.id).unwrap();
+        assert_eq!(duplicate_state.work_minutes, 50);
+        assert_eq!(duplicate_state.break_minutes, 10);
+    }
+
+    #[test]
+    fn migrates_legacy_widget_layouts_once() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE app_settings (
+                    id INTEGER PRIMARY KEY CHECK (id = 1), template TEXT NOT NULL,
+                    opacity INTEGER NOT NULL, edit_mode INTEGER NOT NULL
+                 );
+                 INSERT INTO app_settings VALUES (1, 'focus', 82, 0);
+                 CREATE TABLE widget_layouts (
+                    monitor_key TEXT NOT NULL, template TEXT NOT NULL,
+                    x REAL NOT NULL, y REAL NOT NULL, width REAL NOT NULL, height REAL NOT NULL,
+                    locked INTEGER NOT NULL, snap_to_grid INTEGER NOT NULL,
+                    PRIMARY KEY (monitor_key, template)
+                 );
+                 INSERT INTO widget_layouts VALUES ('display-two', 'kanban', .20, .15, .44, .54, 1, 0);",
+            )
+            .unwrap();
+        let store = AppStore::from_connection(connection).unwrap();
+        let widgets = store
+            .list_desktop_widgets(Some("display-two".into()))
+            .unwrap();
+        assert_eq!(widgets.len(), 1);
+        assert_eq!(widgets[0].kind, WidgetKind::Kanban);
+        assert!(widgets[0].locked);
+        assert!(!widgets[0].snap_to_grid);
+
+        store.delete_desktop_widget(widgets[0].id).unwrap();
+        assert!(
+            store
+                .list_desktop_widgets(Some("display-two".into()))
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]

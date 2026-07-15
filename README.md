@@ -33,6 +33,11 @@ interactivebackground, masaüstünü gerektiğinde sakin bir görev alanına dö
 - Monitör ve şablon başına kalıcı, normalize edilmiş widget konumu ve boyutu
 - Düzenleme modunda sınırlandırılmış sürükleme, sekiz yönden boyutlandırma,
   grid, kenara yapışma, kilitleme ve varsayılana sıfırlama
+- Monitör başına eklenebilen, kaldırılabilen, çoğaltılabilen ve sıralanabilen
+  çoklu widget kataloğu
+- Odak görevleri, Kanban, Pomodoro, canlı saat ve tarih widget'ları
+- Uygulama kapalıyken de bitiş zamanını koruyan Pomodoro ve zamanlanmış Windows
+  tamamlanma bildirimi
 
 ## Geliştirme
 
@@ -80,9 +85,8 @@ yer alır.
 
 ## Sıradaki adımlar
 
-1. Birden fazla öğeyi destekleyen güvenli widget altyapısını geliştirmek
-2. İlk yeni widget olarak Pomodoro, saat ve tarih öğelerini eklemek
-3. Kaynağı doğrulanmış günlük içerik widget'larını hazırlamak
+1. Kaynağı doğrulanmış günlük içerik widget'larını hazırlamak
+2. İlk kullanım ve kişiselleştirme akışını geliştirmek
 
 ## Pencere mimarisi
 
@@ -96,12 +100,20 @@ Wallpaper ayarları `app_settings` tablosunda tek satır olarak tutulur. Ayar
 değişiklikleri de aynı invalidation yaklaşımıyla `settings-changed` olayı
 üzerinden bütün pencerelere bildirilir.
 
-Widget yerleşimi `widget_layouts` tablosunda monitör anahtarı ve wallpaper
-şablonundan oluşan birleşik anahtarla saklanır. Konum ve boyutlar piksel yerine
-0–1 aralığında normalize edilir; böylece çözünürlük ve DPI değişikliklerinde
-aynı göreli alan korunur. Frontend sürükleme sırasında yalnızca canlı önizleme
-üretir, pointer bırakıldığında doğrulanmış son değer SQLite'a yazılır ve
-`widget-layout-changed` olayıyla bütün pencerelere yayınlanır.
+Çoklu widget yerleşimi `desktop_widgets` tablosunda monitör anahtarıyla
+saklanır. Konum ve boyutlar piksel yerine 0–1 aralığında normalize edilir;
+böylece çözünürlük ve DPI değişikliklerinde aynı göreli alan korunur. Frontend
+sürükleme sırasında yalnızca canlı önizleme üretir, pointer bırakıldığında
+doğrulanmış son değer SQLite'a yazılır ve `desktop-widgets-changed` olayıyla
+bütün pencerelere yayınlanır. Önceki `widget_layouts` kayıtları ilk açılışta
+veri kaybetmeden yeni modele yalnızca bir kez taşınır.
+
+Pomodoro sayacı kalan süreyi yalnızca tarayıcı belleğinde azaltmaz. Native
+katman kesin bitiş zamanını `pomodoro_states` tablosunda tutar; uygulama veya
+wallpaper penceresi yeniden oluşturulunca geçen süre sistem saatinden yeniden
+hesaplanır. Başlatılan seans için Tauri notification eklentisi Windows'a
+zamanlanmış bildirim bırakır; duraklatma veya sıfırlama bekleyen bildirimi iptal
+eder.
 
 Monitör seçimi ad, fiziksel konum ve çözünürlükten oluşturulan bir anahtarla
 `monitor_id` sütununda saklanır. Wallpaper gösterilmeden önce native fullscreen

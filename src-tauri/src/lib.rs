@@ -15,6 +15,7 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .plugin(
             tauri_plugin_autostart::Builder::new()
                 .app_name("interactivebackground")
@@ -97,6 +98,15 @@ pub fn run() {
             commands::get_widget_layout,
             commands::update_widget_layout,
             commands::reset_widget_layout,
+            commands::list_desktop_widgets,
+            commands::add_desktop_widget,
+            commands::update_desktop_widget,
+            commands::duplicate_desktop_widget,
+            commands::delete_desktop_widget,
+            commands::reorder_desktop_widgets,
+            commands::get_pomodoro_state,
+            commands::update_pomodoro,
+            commands::configure_pomodoro,
             commands::list_monitors,
             commands::show_wallpaper,
             commands::hide_wallpaper,

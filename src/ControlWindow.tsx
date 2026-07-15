@@ -2,14 +2,15 @@ import { FormEvent, useEffect, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { chooseBackgroundImage as openBackgroundImage, getDesktopHostStatus, hideWallpaper, isTauriRuntime, showWallpaper } from "./taskApi";
-import type { BackgroundFit, BackgroundPreset, DesktopHostStatus, LanguagePreference, ThemePreference } from "./types";
+import type { BackgroundFit, BackgroundPreset, DesktopHostStatus, LanguagePreference, ThemePreference, WidgetKind } from "./types";
 import { useI18n } from "./i18n";
+import type { TranslationKey } from "./i18n/locales/en";
 import { useBackgroundSettings } from "./useBackgroundSettings";
 import { useMonitors } from "./useMonitors";
 import { useSettings } from "./useSettings";
 import { useTasks } from "./useTasks";
 import { useTheme } from "./useTheme";
-import { useWidgetLayout } from "./useWidgetLayout";
+import { useDesktopWidgets } from "./useDesktopWidgets";
 import { WallpaperSurface } from "./WallpaperSurface";
 import appIcon from "./assets/interactivebackground-icon.png";
 
@@ -18,7 +19,7 @@ export function ControlWindow() {
   const { settings, settingsError, saveSettings } = useSettings();
   const { monitors, monitorError } = useMonitors();
   const { background, backgroundError, saveBackground } = useBackgroundSettings(settings.monitorId);
-  const { layout, layoutError, saveLayout, restoreLayout } = useWidgetLayout(settings.monitorId, settings.template);
+  const { widgets, pomodoros, widgetError, addWidget, saveWidget, duplicateWidget, removeWidget, moveWidget, controlPomodoro, savePomodoroDurations } = useDesktopWidgets(settings.monitorId, settings.language);
   const [title, setTitle] = useState("");
   const [time, setTime] = useState("");
   const [opacityDraft, setOpacityDraft] = useState(settings.opacity);
@@ -164,7 +165,7 @@ export function ControlWindow() {
               </form>
             )}
 
-            {(taskError || settingsError || backgroundError || layoutError || monitorError || integrationError || desktopStatus?.warning) && <p className="error-message" role="alert">{localizeError(taskError || settingsError || backgroundError || layoutError || monitorError || integrationError || desktopStatus?.warning || "")}</p>}
+            {(taskError || settingsError || backgroundError || widgetError || monitorError || integrationError || desktopStatus?.warning) && <p className="error-message" role="alert">{localizeError(taskError || settingsError || backgroundError || widgetError || monitorError || integrationError || desktopStatus?.warning || "")}</p>}
 
             <div className="manager-list">
               {tasks.map((task) => (
@@ -182,20 +183,40 @@ export function ControlWindow() {
         <section className="preview-area">
           <div className="preview-toolbar">
             <div><p className="eyebrow">{t("preview.live")}</p><h2>{t("preview.desktop")}</h2></div>
-            <div className="view-switch" aria-label={t("template.label")}>
-              <button className={settings.template === "focus" ? "active" : ""} onClick={() => void saveSettings({ ...settings, template: "focus" })}>{t("template.focus")}</button>
-              <button className={settings.template === "kanban" ? "active" : ""} onClick={() => void saveSettings({ ...settings, template: "kanban" })}>{t("template.kanban")}</button>
-            </div>
+            <span className="widget-count">{t("widgets.count", { count: widgets.length })}</span>
           </div>
 
-          <WallpaperSurface tasks={tasks} template={settings.template} editMode={settings.editMode} opacity={opacityDraft} language={settings.language} background={{ ...background, overlay: overlayDraft, blur: blurDraft }} layout={layout} onToggle={(id) => void toggleTask(id)} onMove={(id, status) => void moveTask(id, status)} onLayoutChange={(next) => void saveLayout(next)} />
+          <WallpaperSurface tasks={tasks} widgets={widgets} pomodoros={pomodoros} editMode={settings.editMode} opacity={opacityDraft} language={settings.language} background={{ ...background, overlay: overlayDraft, blur: blurDraft }} onToggle={(id) => void toggleTask(id)} onMove={(id, status) => void moveTask(id, status)} onWidgetChange={(widget) => void saveWidget(widget)} onPomodoroAction={(id, action) => void controlPomodoro(id, action)} />
 
-          <section className="layout-panel">
-            <div className="layout-copy"><h3>{t("layout.title")}</h3><span>{t("layout.subtitle")}</span></div>
-            <div className="layout-actions">
-              <button className={layout.locked ? "active" : ""} onClick={() => void saveLayout({ ...layout, locked: !layout.locked })}>{layout.locked ? t("layout.unlock") : t("layout.lock")}</button>
-              <label><input type="checkbox" checked={layout.snapToGrid} onChange={(event) => void saveLayout({ ...layout, snapToGrid: event.target.checked })} /> {t("layout.grid")}</label>
-              <button onClick={() => void restoreLayout()}>{t("layout.reset")}</button>
+          <section className="widget-panel">
+            <div className="widget-panel-heading">
+              <div><h3>{t("widgets.title")}</h3><span>{t("widgets.subtitle")}</span></div>
+              <div className="widget-catalog">
+                {(["focus", "kanban", "pomodoro", "clock", "date"] as WidgetKind[]).map((kind) => <button onClick={() => void addWidget(kind)} key={kind}>＋ {widgetKindLabel(kind, t)}</button>)}
+              </div>
+            </div>
+            {widgets.length === 0 && <p className="widget-empty">{t("widgets.empty")}</p>}
+            <div className="widget-manager-list">
+              {widgets.map((widget, index) => {
+                const pomodoro = pomodoros[widget.id];
+                return <article className="widget-manager-item" key={widget.id}>
+                  <span className={`widget-kind-icon kind-${widget.kind}`}>{widgetIcon(widget.kind)}</span>
+                  <div className="widget-manager-copy"><strong>{widgetKindLabel(widget.kind, t)}</strong><span>{widget.visible ? t("widgets.visible") : t("widgets.hidden")}</span></div>
+                  {widget.kind === "pomodoro" && pomodoro && <div className="pomodoro-settings">
+                    <label>{t("pomodoro.workShort")}<input key={`work-${pomodoro.workMinutes}`} type="number" min="1" max="180" defaultValue={pomodoro.workMinutes} onBlur={(event) => void savePomodoroDurations(widget.id, Number(event.currentTarget.value), pomodoro.breakMinutes)} /></label>
+                    <label>{t("pomodoro.breakShort")}<input key={`break-${pomodoro.breakMinutes}`} type="number" min="1" max="60" defaultValue={pomodoro.breakMinutes} onBlur={(event) => void savePomodoroDurations(widget.id, pomodoro.workMinutes, Number(event.currentTarget.value))} /></label>
+                  </div>}
+                  <div className="widget-manager-actions">
+                    <button disabled={index === 0} aria-label={t("widgets.moveUp")} onClick={() => void moveWidget(widget.id, -1)}>↑</button>
+                    <button disabled={index === widgets.length - 1} aria-label={t("widgets.moveDown")} onClick={() => void moveWidget(widget.id, 1)}>↓</button>
+                    <button className={widget.visible ? "active" : ""} onClick={() => void saveWidget({ ...widget, visible: !widget.visible })}>{widget.visible ? t("widgets.hide") : t("widgets.show")}</button>
+                    <button className={widget.locked ? "active" : ""} onClick={() => void saveWidget({ ...widget, locked: !widget.locked })}>{widget.locked ? t("layout.unlock") : t("layout.lock")}</button>
+                    <label className="widget-grid-check"><input type="checkbox" checked={widget.snapToGrid} onChange={(event) => void saveWidget({ ...widget, snapToGrid: event.target.checked })} /> {t("layout.grid")}</label>
+                    <button onClick={() => void duplicateWidget(widget.id)}>{t("widgets.duplicate")}</button>
+                    <button className="danger" onClick={() => void removeWidget(widget.id)}>{t("widgets.remove")}</button>
+                  </div>
+                </article>;
+              })}
             </div>
           </section>
 
@@ -339,4 +360,16 @@ function statusLabel(
   if (status === "inProgress") return t("status.inProgress");
   if (status === "done") return t("status.done");
   return t("status.todo");
+}
+
+function widgetKindLabel(kind: WidgetKind, t: (key: TranslationKey) => string) {
+  return t(`widgets.kind.${kind}` as TranslationKey);
+}
+
+function widgetIcon(kind: WidgetKind) {
+  if (kind === "focus") return "✓";
+  if (kind === "kanban") return "▦";
+  if (kind === "pomodoro") return "◷";
+  if (kind === "clock") return "◴";
+  return "▣";
 }

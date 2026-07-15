@@ -13,7 +13,8 @@ use crate::{
     model::{Task, TaskStatus},
     monitors::MonitorInfo,
     settings::{
-        AppSettings, BackgroundSettings, BackgroundSource, WallpaperTemplate, WidgetLayout,
+        AppSettings, BackgroundSettings, BackgroundSource, DesktopWidget, PomodoroAction,
+        PomodoroState, WallpaperTemplate, WidgetKind, WidgetLayout,
     },
     store::AppStore,
 };
@@ -209,6 +210,104 @@ pub fn reset_widget_layout(
     let layout = store.reset_widget_layout(monitor_id, template)?;
     notify_widget_layout_change(&app);
     Ok(layout)
+}
+
+#[tauri::command]
+pub fn list_desktop_widgets(
+    monitor_id: Option<String>,
+    store: State<'_, AppStore>,
+) -> Result<Vec<DesktopWidget>, String> {
+    store.list_desktop_widgets(monitor_id)
+}
+
+#[tauri::command]
+pub fn add_desktop_widget(
+    monitor_id: Option<String>,
+    kind: WidgetKind,
+    store: State<'_, AppStore>,
+    app: AppHandle,
+) -> Result<DesktopWidget, String> {
+    let widget = store.add_desktop_widget(monitor_id, kind)?;
+    notify_desktop_widgets_change(&app);
+    Ok(widget)
+}
+
+#[tauri::command]
+pub fn update_desktop_widget(
+    widget: DesktopWidget,
+    store: State<'_, AppStore>,
+    app: AppHandle,
+) -> Result<DesktopWidget, String> {
+    let widget = store.update_desktop_widget(widget)?;
+    notify_desktop_widgets_change(&app);
+    Ok(widget)
+}
+
+#[tauri::command]
+pub fn duplicate_desktop_widget(
+    id: i64,
+    store: State<'_, AppStore>,
+    app: AppHandle,
+) -> Result<DesktopWidget, String> {
+    let widget = store.duplicate_desktop_widget(id)?;
+    notify_desktop_widgets_change(&app);
+    Ok(widget)
+}
+
+#[tauri::command]
+pub fn delete_desktop_widget(
+    id: i64,
+    store: State<'_, AppStore>,
+    app: AppHandle,
+) -> Result<(), String> {
+    store.delete_desktop_widget(id)?;
+    notify_desktop_widgets_change(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn reorder_desktop_widgets(
+    monitor_id: Option<String>,
+    ordered_ids: Vec<i64>,
+    store: State<'_, AppStore>,
+    app: AppHandle,
+) -> Result<Vec<DesktopWidget>, String> {
+    let widgets = store.reorder_desktop_widgets(monitor_id, ordered_ids)?;
+    notify_desktop_widgets_change(&app);
+    Ok(widgets)
+}
+
+#[tauri::command]
+pub fn get_pomodoro_state(
+    widget_id: i64,
+    store: State<'_, AppStore>,
+) -> Result<PomodoroState, String> {
+    store.get_pomodoro_state(widget_id)
+}
+
+#[tauri::command]
+pub fn update_pomodoro(
+    widget_id: i64,
+    action: PomodoroAction,
+    store: State<'_, AppStore>,
+    app: AppHandle,
+) -> Result<PomodoroState, String> {
+    let state = store.update_pomodoro(widget_id, action)?;
+    notify_pomodoro_change(&app);
+    Ok(state)
+}
+
+#[tauri::command]
+pub fn configure_pomodoro(
+    widget_id: i64,
+    work_minutes: u16,
+    break_minutes: u16,
+    store: State<'_, AppStore>,
+    app: AppHandle,
+) -> Result<PomodoroState, String> {
+    let state = store.configure_pomodoro(widget_id, work_minutes, break_minutes)?;
+    notify_pomodoro_change(&app);
+    Ok(state)
 }
 
 fn import_background_image_to(source: &Path, backgrounds: &Path) -> Result<PathBuf, String> {
@@ -462,6 +561,18 @@ fn notify_background_change(app: &AppHandle) {
 fn notify_widget_layout_change(app: &AppHandle) {
     if let Err(error) = app.emit("widget-layout-changed", ()) {
         eprintln!("widget-layout-changed olayı yayınlanamadı: {error}");
+    }
+}
+
+fn notify_desktop_widgets_change(app: &AppHandle) {
+    if let Err(error) = app.emit("desktop-widgets-changed", ()) {
+        eprintln!("desktop-widgets-changed olayı yayınlanamadı: {error}");
+    }
+}
+
+fn notify_pomodoro_change(app: &AppHandle) {
+    if let Err(error) = app.emit("pomodoro-changed", ()) {
+        eprintln!("pomodoro-changed olayı yayınlanamadı: {error}");
     }
 }
 

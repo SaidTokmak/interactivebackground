@@ -35,6 +35,35 @@ export type WidgetLayout = {
   snapToGrid: boolean;
 };
 
+export type WidgetKind = "focus" | "kanban" | "pomodoro" | "clock" | "date";
+
+export type DesktopWidget = {
+  id: number;
+  monitorId: string | null;
+  kind: WidgetKind;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  locked: boolean;
+  snapToGrid: boolean;
+  visible: boolean;
+  sortOrder: number;
+};
+
+export type PomodoroMode = "work" | "break";
+export type PomodoroAction = "start" | "pause" | "reset" | "skip" | "complete";
+
+export type PomodoroState = {
+  widgetId: number;
+  mode: PomodoroMode;
+  workMinutes: number;
+  breakMinutes: number;
+  remainingSeconds: number;
+  running: boolean;
+  endsAt: number | null;
+};
+
 export type AppSettings = {
   template: WallpaperTemplate;
   opacity: number;

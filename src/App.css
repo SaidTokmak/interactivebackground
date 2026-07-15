@@ -183,6 +183,24 @@ h2 { margin-bottom: 0; font-size: 15px; }
 .kanban-board { min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; overflow: auto; }
 .kanban-column > span { display: block; margin-bottom: 7px; color: #728078; font-size: 9px; }
 .kanban-card { width: 100%; margin-bottom: 6px; padding: 8px; border: 0; border-radius: 8px; text-align: left; color: var(--ink); background: var(--subtle-bg); font-size: 9px; cursor: pointer; }
+.widget-pomodoro, .widget-clock, .widget-date { justify-content: space-between; }
+.widget-pomodoro .widget-header, .widget-clock .widget-header, .widget-date .widget-header { margin-bottom: 6px; }
+.pomodoro-body { min-height: 0; display: flex; flex: 1; flex-direction: column; justify-content: center; gap: 10px; }
+.pomodoro-mode { color: var(--muted); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; }
+.pomodoro-time { font-family: Georgia, serif; font-size: clamp(26px, 3vw, 48px); font-weight: 500; letter-spacing: .04em; }
+.pomodoro-track { height: 5px; overflow: hidden; border-radius: 99px; background: var(--switch-bg); }
+.pomodoro-track span { height: 100%; display: block; border-radius: inherit; background: linear-gradient(90deg, var(--accent), var(--coral)); }
+.pomodoro-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.pomodoro-actions button { padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--field-bg); font-size: 9px; cursor: pointer; }
+.pomodoro-actions button:first-child { border-color: transparent; color: white; background: var(--accent); }
+.clock-body { min-height: 0; display: flex; flex: 1; flex-direction: column; justify-content: center; }
+.clock-body strong { font-family: Georgia, serif; font-size: clamp(26px, 3.6vw, 58px); font-weight: 500; line-height: 1; white-space: nowrap; }
+.clock-body span { margin-top: 10px; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.date-body { min-height: 0; display: flex; flex: 1; align-items: center; gap: 14px; }
+.date-body > strong { font-family: Georgia, serif; font-size: clamp(38px, 5vw, 76px); font-weight: 500; line-height: .9; }
+.date-body div { min-width: 0; display: grid; gap: 3px; }
+.date-body span { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.date-body b { overflow: hidden; font-family: Georgia, serif; font-size: 16px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
 
 .preview-controls { gap: 16px; padding-top: 16px; flex-wrap: wrap; }
 .background-panel { margin-top: 16px; padding: 15px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--panel) 82%, transparent); }
@@ -194,6 +212,33 @@ h2 { margin-bottom: 0; font-size: 15px; }
 .layout-actions button.active, .wallpaper-tool.active { border-color: var(--coral); color: var(--coral); background: color-mix(in srgb, var(--coral) 10%, var(--field-bg)); }
 .layout-actions label { display: flex; align-items: center; gap: 5px; color: var(--muted); font-size: 9px; cursor: pointer; }
 .layout-actions input, .wallpaper-grid-toggle input { accent-color: var(--accent); }
+.widget-count, .wallpaper-widget-count { padding: 6px 9px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); background: var(--field-bg); font-size: 9px; white-space: nowrap; }
+.widget-panel { margin-top: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--panel) 82%, transparent); }
+.widget-panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.widget-panel-heading h3 { margin: 0 0 3px; font-size: 13px; }
+.widget-panel-heading span, .widget-empty { color: var(--muted); font-size: 9px; }
+.widget-catalog { display: flex; justify-content: flex-end; gap: 6px; flex-wrap: wrap; }
+.widget-catalog button { padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--field-bg); font-size: 9px; cursor: pointer; }
+.widget-catalog button:hover { border-color: var(--accent); }
+.widget-empty { margin: 14px 0 0; padding: 13px; border: 1px dashed var(--line); border-radius: 10px; text-align: center; }
+.widget-manager-list { display: grid; gap: 7px; margin-top: 12px; }
+.widget-manager-item { display: grid; grid-template-columns: 32px minmax(100px, .7fr) auto minmax(270px, 1.5fr); gap: 9px; align-items: center; padding: 8px; border: 1px solid var(--line); border-radius: 11px; background: var(--field-bg); }
+.widget-kind-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; color: white; background: var(--accent); font-size: 14px; }
+.widget-kind-icon.kind-pomodoro { background: var(--coral); }
+.widget-kind-icon.kind-clock, .widget-kind-icon.kind-date { background: #526681; }
+.widget-manager-copy { min-width: 0; display: grid; gap: 2px; }
+.widget-manager-copy strong { overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.widget-manager-copy span { color: var(--muted); font-size: 8px; }
+.widget-manager-actions { display: flex; align-items: center; justify-content: flex-end; gap: 5px; flex-wrap: wrap; }
+.widget-manager-actions button { padding: 6px 7px; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); background: var(--panel); font-size: 8px; cursor: pointer; }
+.widget-manager-actions button.active { border-color: var(--accent); color: var(--accent); }
+.widget-manager-actions button.danger { color: var(--coral); }
+.widget-manager-actions button:disabled { opacity: .35; cursor: default; }
+.widget-grid-check { display: flex; align-items: center; gap: 3px; color: var(--muted); font-size: 8px; white-space: nowrap; }
+.widget-grid-check input { accent-color: var(--accent); }
+.pomodoro-settings { display: flex; gap: 5px; }
+.pomodoro-settings label { display: grid; gap: 2px; color: var(--muted); font-size: 7px; }
+.pomodoro-settings input { width: 52px; padding: 5px; border: 1px solid var(--line); border-radius: 6px; color: var(--ink); background: var(--panel); font-size: 9px; }
 .background-heading, .background-adjustments { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .background-heading h3 { margin: 0 0 3px; font-size: 13px; }
 .background-heading span { color: var(--muted); font-size: 9px; }
@@ -259,6 +304,10 @@ h2 { margin-bottom: 0; font-size: 15px; }
   .background-options { grid-template-columns: repeat(3, 1fr); }
   .layout-panel { align-items: flex-start; flex-direction: column; }
   .layout-actions { justify-content: flex-start; }
+  .widget-panel-heading { flex-direction: column; }
+  .widget-catalog { justify-content: flex-start; }
+  .widget-manager-item { grid-template-columns: 32px 1fr; }
+  .pomodoro-settings, .widget-manager-actions { grid-column: 1 / -1; justify-content: flex-start; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -26,6 +26,7 @@ serde_json = "1"
 # `cfg_select` kullanıyor. Uyumlu sürümü kesin olarak sabitliyoruz.
 rusqlite = { version = "=0.39.0", features = ["bundled"] }
 tauri-plugin-dialog = "2"
+tauri-plugin-notification = "2"
 
 # WorkerW masaüstü katmanı yalnızca Windows'ta derlenir. `windows-sys`, Win32
 # fonksiyonlarına ince ve doğrudan bir FFI katmanı sağlar; diğer platformların

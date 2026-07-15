@@ -65,6 +65,10 @@ function localizeNativeError(
     "Widget yerleşimi görünür ekran sınırları içinde olmalıdır.": "error.layout",
     "Widget boyutu izin verilen aralıkta olmalıdır.": "error.layout",
     "Widget yerleşimi sonlu sayılardan oluşmalıdır.": "error.layout",
+    "Bir monitörde en fazla 12 widget kullanılabilir.": "error.widgetLimit",
+    "Widget bulunamadı.": "error.widgetMissing",
+    "Widget kimliği geçersiz.": "error.widgetMissing",
+    "Pomodoro süreleri izin verilen aralıkta değil.": "error.pomodoroDuration",
   };
   if (exact[message]) return t(exact[message]);
   if (message.startsWith("Veritabanı hatası:")) return t("error.database");

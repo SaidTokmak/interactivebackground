@@ -72,6 +72,61 @@ pub struct WidgetLayout {
     pub snap_to_grid: bool,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WidgetKind {
+    Focus,
+    Kanban,
+    Pomodoro,
+    Clock,
+    Date,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DesktopWidget {
+    pub id: i64,
+    pub monitor_id: Option<String>,
+    pub kind: WidgetKind,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub locked: bool,
+    pub snap_to_grid: bool,
+    pub visible: bool,
+    pub sort_order: i64,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PomodoroMode {
+    Work,
+    Break,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PomodoroAction {
+    Start,
+    Pause,
+    Reset,
+    Skip,
+    Complete,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PomodoroState {
+    pub widget_id: i64,
+    pub mode: PomodoroMode,
+    pub work_minutes: u16,
+    pub break_minutes: u16,
+    pub remaining_seconds: i64,
+    pub running: bool,
+    pub ends_at: Option<i64>,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -167,6 +222,110 @@ impl WidgetLayout {
             return Err("Widget yerleşimi görünür ekran sınırları içinde olmalıdır.".into());
         }
         Ok(self)
+    }
+}
+
+impl WidgetKind {
+    pub fn as_database_value(self) -> &'static str {
+        match self {
+            Self::Focus => "focus",
+            Self::Kanban => "kanban",
+            Self::Pomodoro => "pomodoro",
+            Self::Clock => "clock",
+            Self::Date => "date",
+        }
+    }
+
+    pub fn from_database_value(value: &str) -> Result<Self, String> {
+        match value {
+            "focus" => Ok(Self::Focus),
+            "kanban" => Ok(Self::Kanban),
+            "pomodoro" => Ok(Self::Pomodoro),
+            "clock" => Ok(Self::Clock),
+            "date" => Ok(Self::Date),
+            other => Err(format!("Bilinmeyen widget türü: {other}")),
+        }
+    }
+
+    pub fn default_frame(self) -> (f64, f64, f64, f64) {
+        match self {
+            Self::Focus => (0.62, 0.16, 0.34, 0.56),
+            Self::Kanban => (0.52, 0.16, 0.44, 0.54),
+            Self::Pomodoro => (0.05, 0.12, 0.25, 0.34),
+            Self::Clock => (0.05, 0.54, 0.22, 0.20),
+            Self::Date => (0.30, 0.72, 0.25, 0.18),
+        }
+    }
+
+    pub fn size_limits(self) -> ((f64, f64), (f64, f64)) {
+        match self {
+            Self::Focus | Self::Kanban => ((0.18, 0.20), (0.78, 0.78)),
+            Self::Pomodoro => ((0.18, 0.24), (0.50, 0.62)),
+            Self::Clock => ((0.12, 0.14), (0.46, 0.42)),
+            Self::Date => ((0.16, 0.14), (0.52, 0.42)),
+        }
+    }
+}
+
+impl DesktopWidget {
+    pub fn defaults_for(monitor_id: Option<String>, kind: WidgetKind, sort_order: i64) -> Self {
+        let (mut x, mut y, width, height) = kind.default_frame();
+        let offset = (sort_order.rem_euclid(6) as f64) * 0.025;
+        x = (x + offset).min(0.985 - width);
+        y = (y + offset).min(0.985 - height);
+        Self {
+            id: 0,
+            monitor_id,
+            kind,
+            x,
+            y,
+            width,
+            height,
+            locked: false,
+            snap_to_grid: true,
+            visible: true,
+            sort_order,
+        }
+    }
+
+    pub fn validate(self) -> Result<Self, String> {
+        if ![self.x, self.y, self.width, self.height]
+            .into_iter()
+            .all(f64::is_finite)
+        {
+            return Err("Widget yerleşimi sonlu sayılardan oluşmalıdır.".into());
+        }
+        let ((min_width, min_height), (max_width, max_height)) = self.kind.size_limits();
+        if !(min_width..=max_width).contains(&self.width)
+            || !(min_height..=max_height).contains(&self.height)
+        {
+            return Err("Widget boyutu izin verilen aralıkta olmalıdır.".into());
+        }
+        if self.x < 0.0
+            || self.y < 0.0
+            || self.x + self.width > 1.000_001
+            || self.y + self.height > 1.000_001
+        {
+            return Err("Widget yerleşimi görünür ekran sınırları içinde olmalıdır.".into());
+        }
+        Ok(self)
+    }
+}
+
+impl PomodoroMode {
+    pub fn as_database_value(self) -> &'static str {
+        match self {
+            Self::Work => "work",
+            Self::Break => "break",
+        }
+    }
+
+    pub fn from_database_value(value: &str) -> Result<Self, String> {
+        match value {
+            "work" => Ok(Self::Work),
+            "break" => Ok(Self::Break),
+            other => Err(format!("Bilinmeyen Pomodoro modu: {other}")),
+        }
     }
 }
 

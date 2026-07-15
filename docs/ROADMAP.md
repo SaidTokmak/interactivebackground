@@ -86,6 +86,8 @@ dışına çıkmaz; kullanıcı klasörlerini boşta bırakacak konumu seçip sa
 
 ## Faz 5 — Widget altyapısı ve ilk widget'lar
 
+Durum: Tamamlandı — 15 Temmuz 2026
+
 İlk sürümde üçüncü taraf kod çalıştıran açık bir eklenti sistemi yerine,
 uygulama içinde tanımlı güvenli widget kataloğu kullanılacaktır.
 
@@ -147,7 +149,7 @@ doğrulanmış içerik korunur ve kullanıcı özelliği tamamen kapatabilir.
 
 ## Önerilen bir sonraki çalışma
 
-Faz 5'e geçilmelidir: mevcut görev alanını ilk katalog öğesine dönüştüren ortak
-widget modeli kurulmalı; ekleme, kaldırma, görünürlük, sıralama ve bağımsız
-yerleşim kuralları hazırlanmalıdır. Bu temel üzerinde ilk yeni öğe olarak
-kalıcı zaman durumuna sahip Pomodoro geliştirilmelidir.
+Faz 6'ya geçilmelidir: günlük içerik widget'ları için kaynak, lisans, çeviri ve
+çevrimdışı cache modeli tasarlanmalıdır. İlk uygulama yalnızca kaynağı açıkça
+gösterilen, doğrulanmış ve kullanıcı tarafından tamamen kapatılabilen bir içerik
+paketiyle başlamalıdır.
