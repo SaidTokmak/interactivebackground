@@ -30,6 +30,9 @@ interactivebackground, masaüstünü gerektiğinde sakin bir görev alanına dö
 - Monitör başına kalıcı hazır tema veya kullanıcı arka planı seçimi
 - JPG, PNG ve WebP görseller için kapla/sığdır/uzat, karartma ve blur ayarları
 - Folded Horizon, Midnight, Graphite ve Ember hazır arka plan koleksiyonu
+- Monitör ve şablon başına kalıcı, normalize edilmiş widget konumu ve boyutu
+- Düzenleme modunda sınırlandırılmış sürükleme, sekiz yönden boyutlandırma,
+  grid, kenara yapışma, kilitleme ve varsayılana sıfırlama
 
 ## Geliştirme
 
@@ -77,8 +80,9 @@ yer alır.
 
 ## Sıradaki adımlar
 
-1. Sınırlandırılmış sürüklenebilir widget yerleşim motorunu geliştirmek
-2. Pomodoro ve kaynaklı günlük içerik widget'larını eklemek
+1. Birden fazla öğeyi destekleyen güvenli widget altyapısını geliştirmek
+2. İlk yeni widget olarak Pomodoro, saat ve tarih öğelerini eklemek
+3. Kaynağı doğrulanmış günlük içerik widget'larını hazırlamak
 
 ## Pencere mimarisi
 
@@ -91,6 +95,13 @@ yeniden SQLite'tan ister.
 Wallpaper ayarları `app_settings` tablosunda tek satır olarak tutulur. Ayar
 değişiklikleri de aynı invalidation yaklaşımıyla `settings-changed` olayı
 üzerinden bütün pencerelere bildirilir.
+
+Widget yerleşimi `widget_layouts` tablosunda monitör anahtarı ve wallpaper
+şablonundan oluşan birleşik anahtarla saklanır. Konum ve boyutlar piksel yerine
+0–1 aralığında normalize edilir; böylece çözünürlük ve DPI değişikliklerinde
+aynı göreli alan korunur. Frontend sürükleme sırasında yalnızca canlı önizleme
+üretir, pointer bırakıldığında doğrulanmış son değer SQLite'a yazılır ve
+`widget-layout-changed` olayıyla bütün pencerelere yayınlanır.
 
 Monitör seçimi ad, fiziksel konum ve çözünürlükten oluşturulan bir anahtarla
 `monitor_id` sütununda saklanır. Wallpaper gösterilmeden önce native fullscreen

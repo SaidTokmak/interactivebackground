@@ -24,6 +24,17 @@ export type BackgroundSettings = {
   blur: number;
 };
 
+export type WidgetLayout = {
+  monitorId: string | null;
+  template: WallpaperTemplate;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  locked: boolean;
+  snapToGrid: boolean;
+};
+
 export type AppSettings = {
   template: WallpaperTemplate;
   opacity: number;

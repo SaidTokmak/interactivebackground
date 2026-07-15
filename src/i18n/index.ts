@@ -62,6 +62,9 @@ function localizeNativeError(
     "Arka plan dosya türü desteklenmiyor.": "error.backgroundType",
     "Arka plan dosyasının içeriği seçilen görsel türüyle eşleşmiyor.": "error.backgroundType",
     "Arka plan görseli boş olamaz ve 50 MB'ı geçemez.": "error.backgroundSize",
+    "Widget yerleşimi görünür ekran sınırları içinde olmalıdır.": "error.layout",
+    "Widget boyutu izin verilen aralıkta olmalıdır.": "error.layout",
+    "Widget yerleşimi sonlu sayılardan oluşmalıdır.": "error.layout",
   };
   if (exact[message]) return t(exact[message]);
   if (message.startsWith("Veritabanı hatası:")) return t("error.database");

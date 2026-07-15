@@ -64,6 +64,13 @@ export const en = {
   "background.overlay": "Darkening",
   "background.blur": "Blur",
   "background.presetAria": "Use {{name}} background",
+  "layout.title": "Widget placement",
+  "layout.subtitle": "Drag the header or resize from the edges in edit mode",
+  "layout.lock": "Lock",
+  "layout.unlock": "Unlock",
+  "layout.grid": "Snap to grid",
+  "layout.reset": "Reset position",
+  "layout.lockedBadge": "Locked",
   "wallpaper.interaction": "Interaction",
   "wallpaper.back": "Return to control panel",
   "wallpaper.mode.edit": "Edit mode",
@@ -96,6 +103,7 @@ export const en = {
   "error.backgroundType": "Choose a JPG, PNG, or WebP image.",
   "error.backgroundSize": "The image must not be empty or larger than 50 MB.",
   "error.backgroundFile": "The background image could not be saved.",
+  "error.layout": "The widget must remain inside the visible display area.",
 } as const;
 
 export type TranslationKey = keyof typeof en;

@@ -9,6 +9,7 @@ import { useMonitors } from "./useMonitors";
 import { useSettings } from "./useSettings";
 import { useTasks } from "./useTasks";
 import { useTheme } from "./useTheme";
+import { useWidgetLayout } from "./useWidgetLayout";
 import { WallpaperSurface } from "./WallpaperSurface";
 import appIcon from "./assets/interactivebackground-icon.png";
 
@@ -17,6 +18,7 @@ export function ControlWindow() {
   const { settings, settingsError, saveSettings } = useSettings();
   const { monitors, monitorError } = useMonitors();
   const { background, backgroundError, saveBackground } = useBackgroundSettings(settings.monitorId);
+  const { layout, layoutError, saveLayout, restoreLayout } = useWidgetLayout(settings.monitorId, settings.template);
   const [title, setTitle] = useState("");
   const [time, setTime] = useState("");
   const [opacityDraft, setOpacityDraft] = useState(settings.opacity);
@@ -162,7 +164,7 @@ export function ControlWindow() {
               </form>
             )}
 
-            {(taskError || settingsError || backgroundError || monitorError || integrationError || desktopStatus?.warning) && <p className="error-message" role="alert">{localizeError(taskError || settingsError || backgroundError || monitorError || integrationError || desktopStatus?.warning || "")}</p>}
+            {(taskError || settingsError || backgroundError || layoutError || monitorError || integrationError || desktopStatus?.warning) && <p className="error-message" role="alert">{localizeError(taskError || settingsError || backgroundError || layoutError || monitorError || integrationError || desktopStatus?.warning || "")}</p>}
 
             <div className="manager-list">
               {tasks.map((task) => (
@@ -186,7 +188,16 @@ export function ControlWindow() {
             </div>
           </div>
 
-          <WallpaperSurface tasks={tasks} template={settings.template} editMode={settings.editMode} opacity={opacityDraft} language={settings.language} background={{ ...background, overlay: overlayDraft, blur: blurDraft }} onToggle={(id) => void toggleTask(id)} onMove={(id, status) => void moveTask(id, status)} />
+          <WallpaperSurface tasks={tasks} template={settings.template} editMode={settings.editMode} opacity={opacityDraft} language={settings.language} background={{ ...background, overlay: overlayDraft, blur: blurDraft }} layout={layout} onToggle={(id) => void toggleTask(id)} onMove={(id, status) => void moveTask(id, status)} onLayoutChange={(next) => void saveLayout(next)} />
+
+          <section className="layout-panel">
+            <div className="layout-copy"><h3>{t("layout.title")}</h3><span>{t("layout.subtitle")}</span></div>
+            <div className="layout-actions">
+              <button className={layout.locked ? "active" : ""} onClick={() => void saveLayout({ ...layout, locked: !layout.locked })}>{layout.locked ? t("layout.unlock") : t("layout.lock")}</button>
+              <label><input type="checkbox" checked={layout.snapToGrid} onChange={(event) => void saveLayout({ ...layout, snapToGrid: event.target.checked })} /> {t("layout.grid")}</label>
+              <button onClick={() => void restoreLayout()}>{t("layout.reset")}</button>
+            </div>
+          </section>
 
           <section className="background-panel">
             <div className="background-heading">

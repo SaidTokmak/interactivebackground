@@ -12,7 +12,9 @@ use crate::{
     desktop_host::{DesktopHostState, DesktopHostStatus},
     model::{Task, TaskStatus},
     monitors::MonitorInfo,
-    settings::{AppSettings, BackgroundSettings, BackgroundSource},
+    settings::{
+        AppSettings, BackgroundSettings, BackgroundSource, WallpaperTemplate, WidgetLayout,
+    },
     store::AppStore,
 };
 
@@ -175,6 +177,38 @@ pub async fn choose_background_image(
         .map_err(|error| format!("Arka plan dosya yolu okunamadı: {error}"))?;
     let destination = import_background_image_to(&source, &managed_background_directory(&app)?)?;
     Ok(Some(destination.to_string_lossy().into_owned()))
+}
+
+#[tauri::command]
+pub fn get_widget_layout(
+    monitor_id: Option<String>,
+    template: WallpaperTemplate,
+    store: State<'_, AppStore>,
+) -> Result<WidgetLayout, String> {
+    store.get_widget_layout(monitor_id, template)
+}
+
+#[tauri::command]
+pub fn update_widget_layout(
+    layout: WidgetLayout,
+    store: State<'_, AppStore>,
+    app: AppHandle,
+) -> Result<WidgetLayout, String> {
+    let layout = store.update_widget_layout(layout)?;
+    notify_widget_layout_change(&app);
+    Ok(layout)
+}
+
+#[tauri::command]
+pub fn reset_widget_layout(
+    monitor_id: Option<String>,
+    template: WallpaperTemplate,
+    store: State<'_, AppStore>,
+    app: AppHandle,
+) -> Result<WidgetLayout, String> {
+    let layout = store.reset_widget_layout(monitor_id, template)?;
+    notify_widget_layout_change(&app);
+    Ok(layout)
 }
 
 fn import_background_image_to(source: &Path, backgrounds: &Path) -> Result<PathBuf, String> {
@@ -422,6 +456,12 @@ fn notify_settings_change(app: &AppHandle) {
 fn notify_background_change(app: &AppHandle) {
     if let Err(error) = app.emit("background-settings-changed", ()) {
         eprintln!("background-settings-changed olayı yayınlanamadı: {error}");
+    }
+}
+
+fn notify_widget_layout_change(app: &AppHandle) {
+    if let Err(error) = app.emit("widget-layout-changed", ()) {
+        eprintln!("widget-layout-changed olayı yayınlanamadı: {error}");
     }
 }
 

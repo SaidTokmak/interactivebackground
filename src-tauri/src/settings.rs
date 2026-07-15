@@ -59,6 +59,19 @@ pub struct BackgroundSettings {
     pub blur: u8,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WidgetLayout {
+    pub monitor_id: Option<String>,
+    pub template: WallpaperTemplate,
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+    pub locked: bool,
+    pub snap_to_grid: bool,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
@@ -113,6 +126,45 @@ impl BackgroundSettings {
         }
         if self.source == BackgroundSource::Preset {
             self.custom_path = None;
+        }
+        Ok(self)
+    }
+}
+
+impl WidgetLayout {
+    pub fn defaults_for(monitor_id: Option<String>, template: WallpaperTemplate) -> Self {
+        let (x, width, height) = match template {
+            WallpaperTemplate::Focus => (0.62, 0.34, 0.56),
+            WallpaperTemplate::Kanban => (0.52, 0.44, 0.54),
+        };
+        Self {
+            monitor_id,
+            template,
+            x,
+            y: 0.16,
+            width,
+            height,
+            locked: false,
+            snap_to_grid: true,
+        }
+    }
+
+    pub fn validate(self) -> Result<Self, String> {
+        if ![self.x, self.y, self.width, self.height]
+            .into_iter()
+            .all(f64::is_finite)
+        {
+            return Err("Widget yerleşimi sonlu sayılardan oluşmalıdır.".into());
+        }
+        if !(0.18..=0.78).contains(&self.width) || !(0.20..=0.78).contains(&self.height) {
+            return Err("Widget boyutu izin verilen aralıkta olmalıdır.".into());
+        }
+        if self.x < 0.0
+            || self.y < 0.0
+            || self.x + self.width > 1.000_001
+            || self.y + self.height > 1.000_001
+        {
+            return Err("Widget yerleşimi görünür ekran sınırları içinde olmalıdır.".into());
         }
         Ok(self)
     }

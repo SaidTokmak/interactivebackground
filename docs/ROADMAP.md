@@ -64,6 +64,8 @@ korunur; farklı çözünürlük ve ekran oranlarında doğru ölçeklenir.
 
 ## Faz 4 — Sınırlandırılmış widget yerleşim motoru
 
+Durum: Tamamlandı — 15 Temmuz 2026
+
 Bu faz, kullanıcının masaüstü klasörlerinin kapladığı alanla çakışmayan bir
 çalışma alanı oluşturmasını sağlar. Windows masaüstü ikonlarının konumunu
 belgelenmemiş yöntemlerle otomatik okumak yerine kullanıcı güvenli alanı görsel
@@ -145,7 +147,7 @@ doğrulanmış içerik korunur ve kullanıcı özelliği tamamen kapatabilir.
 
 ## Önerilen bir sonraki çalışma
 
-Faz 4'e geçilmelidir: görev widget'ının yalnızca düzenleme modunda sürüklenip
-yeniden boyutlandırılabildiği, monitör sınırları içinde kalan normalize edilmiş
-yerleşim motoru kurulmalıdır. Hazır temalar ile kullanıcı görsellerinin tamamı
-bu motorun okunabilirlik ve sınır testlerinde kullanılmalıdır.
+Faz 5'e geçilmelidir: mevcut görev alanını ilk katalog öğesine dönüştüren ortak
+widget modeli kurulmalı; ekleme, kaldırma, görünürlük, sıralama ve bağımsız
+yerleşim kuralları hazırlanmalıdır. Bu temel üzerinde ilk yeni öğe olarak
+kalıcı zaman durumuna sahip Pomodoro geliştirilmelidir.

@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AppSettings, BackgroundSettings, DesktopHostStatus, MonitorInfo, Task, TaskStatus } from "./types";
+import type { AppSettings, BackgroundSettings, DesktopHostStatus, MonitorInfo, Task, TaskStatus, WallpaperTemplate, WidgetLayout } from "./types";
 
 let browserTasks: Task[] = [
   { id: 1, title: "Rust ownership notlarını bitir", status: "done", scheduledFor: "09:30" },
@@ -121,6 +121,24 @@ export async function chooseBackgroundImage(filterName: string): Promise<string 
   return invoke<string | null>("choose_background_image", { filterName });
 }
 
+export async function getWidgetLayout(monitorId: string | null, template: WallpaperTemplate): Promise<WidgetLayout> {
+  if (isTauriRuntime()) return invoke<WidgetLayout>("get_widget_layout", { monitorId, template });
+  const key = widgetLayoutKey(monitorId, template);
+  return { ...(browserWidgetLayouts.get(key) ?? defaultWidgetLayout(monitorId, template)) };
+}
+
+export async function updateWidgetLayout(layout: WidgetLayout): Promise<WidgetLayout> {
+  if (isTauriRuntime()) return invoke<WidgetLayout>("update_widget_layout", { layout });
+  browserWidgetLayouts.set(widgetLayoutKey(layout.monitorId, layout.template), { ...layout });
+  return { ...layout };
+}
+
+export async function resetWidgetLayout(monitorId: string | null, template: WallpaperTemplate): Promise<WidgetLayout> {
+  if (isTauriRuntime()) return invoke<WidgetLayout>("reset_widget_layout", { monitorId, template });
+  browserWidgetLayouts.delete(widgetLayoutKey(monitorId, template));
+  return defaultWidgetLayout(monitorId, template);
+}
+
 let browserSettings: AppSettings = {
   template: "focus",
   opacity: 82,
@@ -132,6 +150,7 @@ let browserSettings: AppSettings = {
 };
 
 const browserBackgrounds = new Map<string, BackgroundSettings>();
+const browserWidgetLayouts = new Map<string, WidgetLayout>();
 
 function defaultBackground(monitorId: string | null): BackgroundSettings {
   return {
@@ -142,5 +161,22 @@ function defaultBackground(monitorId: string | null): BackgroundSettings {
     fit: "cover",
     overlay: 16,
     blur: 0,
+  };
+}
+
+function widgetLayoutKey(monitorId: string | null, template: WallpaperTemplate) {
+  return `${monitorId ?? "__primary__"}:${template}`;
+}
+
+function defaultWidgetLayout(monitorId: string | null, template: WallpaperTemplate): WidgetLayout {
+  return {
+    monitorId,
+    template,
+    x: template === "focus" ? 0.62 : 0.52,
+    y: 0.16,
+    width: template === "focus" ? 0.34 : 0.44,
+    height: template === "focus" ? 0.56 : 0.54,
+    locked: false,
+    snapToGrid: true,
   };
 }

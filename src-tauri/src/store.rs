@@ -6,7 +6,7 @@ use crate::{
     model::{Task, TaskStatus},
     settings::{
         AppSettings, BackgroundFit, BackgroundPreset, BackgroundSettings, BackgroundSource,
-        LanguagePreference, ThemePreference, WallpaperTemplate,
+        LanguagePreference, ThemePreference, WallpaperTemplate, WidgetLayout,
     },
 };
 
@@ -70,6 +70,18 @@ impl AppStore {
                          CHECK (fit IN ('cover', 'contain', 'stretch')),
                      overlay INTEGER NOT NULL DEFAULT 16 CHECK (overlay BETWEEN 0 AND 70),
                      blur INTEGER NOT NULL DEFAULT 0 CHECK (blur BETWEEN 0 AND 24)
+                 );
+
+                 CREATE TABLE IF NOT EXISTS widget_layouts (
+                     monitor_key TEXT NOT NULL,
+                     template TEXT NOT NULL CHECK (template IN ('focus', 'kanban')),
+                     x REAL NOT NULL,
+                     y REAL NOT NULL,
+                     width REAL NOT NULL,
+                     height REAL NOT NULL,
+                     locked INTEGER NOT NULL DEFAULT 0 CHECK (locked IN (0, 1)),
+                     snap_to_grid INTEGER NOT NULL DEFAULT 1 CHECK (snap_to_grid IN (0, 1)),
+                     PRIMARY KEY (monitor_key, template)
                  );
 
                  INSERT OR IGNORE INTO app_settings (id, template, opacity, edit_mode)
@@ -295,6 +307,76 @@ impl AppStore {
         Ok(settings)
     }
 
+    pub fn get_widget_layout(
+        &self,
+        monitor_id: Option<String>,
+        template: WallpaperTemplate,
+    ) -> Result<WidgetLayout, String> {
+        let connection = self.lock_connection()?;
+        let monitor_key = background_monitor_key(monitor_id.as_deref());
+        connection
+            .query_row(
+                "SELECT x, y, width, height, locked, snap_to_grid
+                 FROM widget_layouts WHERE monitor_key = ?1 AND template = ?2",
+                params![monitor_key, template.as_database_value()],
+                |row| widget_layout_from_row(row, monitor_id.clone(), template),
+            )
+            .optional()
+            .map_err(database_error)
+            .map(|layout| {
+                layout.unwrap_or_else(|| WidgetLayout::defaults_for(monitor_id, template))
+            })
+    }
+
+    pub fn update_widget_layout(&self, layout: WidgetLayout) -> Result<WidgetLayout, String> {
+        let layout = layout.validate()?;
+        let connection = self.lock_connection()?;
+        let monitor_key = background_monitor_key(layout.monitor_id.as_deref());
+        connection
+            .execute(
+                "INSERT INTO widget_layouts
+                    (monitor_key, template, x, y, width, height, locked, snap_to_grid)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                 ON CONFLICT(monitor_key, template) DO UPDATE SET
+                    x = excluded.x,
+                    y = excluded.y,
+                    width = excluded.width,
+                    height = excluded.height,
+                    locked = excluded.locked,
+                    snap_to_grid = excluded.snap_to_grid",
+                params![
+                    monitor_key,
+                    layout.template.as_database_value(),
+                    layout.x,
+                    layout.y,
+                    layout.width,
+                    layout.height,
+                    layout.locked,
+                    layout.snap_to_grid,
+                ],
+            )
+            .map_err(database_error)?;
+        Ok(layout)
+    }
+
+    pub fn reset_widget_layout(
+        &self,
+        monitor_id: Option<String>,
+        template: WallpaperTemplate,
+    ) -> Result<WidgetLayout, String> {
+        let connection = self.lock_connection()?;
+        connection
+            .execute(
+                "DELETE FROM widget_layouts WHERE monitor_key = ?1 AND template = ?2",
+                params![
+                    background_monitor_key(monitor_id.as_deref()),
+                    template.as_database_value()
+                ],
+            )
+            .map_err(database_error)?;
+        Ok(WidgetLayout::defaults_for(monitor_id, template))
+    }
+
     fn lock_connection(&self) -> Result<std::sync::MutexGuard<'_, Connection>, String> {
         self.connection
             .lock()
@@ -404,6 +486,23 @@ fn background_settings_from_row(
             .map_err(|message| conversion_error(3, message))?,
         overlay: row.get(4)?,
         blur: row.get(5)?,
+    })
+}
+
+fn widget_layout_from_row(
+    row: &Row<'_>,
+    monitor_id: Option<String>,
+    template: WallpaperTemplate,
+) -> rusqlite::Result<WidgetLayout> {
+    Ok(WidgetLayout {
+        monitor_id,
+        template,
+        x: row.get(0)?,
+        y: row.get(1)?,
+        width: row.get(2)?,
+        height: row.get(3)?,
+        locked: row.get(4)?,
+        snap_to_grid: row.get(5)?,
     })
 }
 
@@ -654,6 +753,78 @@ mod tests {
             store.get_background_settings(None).unwrap(),
             BackgroundSettings::defaults_for(None)
         );
+    }
+
+    #[test]
+    fn keeps_widget_layouts_separate_by_monitor_and_template() {
+        let store = AppStore::in_memory().unwrap();
+        let focus = WidgetLayout {
+            monitor_id: Some("display-two".into()),
+            template: WallpaperTemplate::Focus,
+            x: 0.08,
+            y: 0.12,
+            width: 0.42,
+            height: 0.58,
+            locked: true,
+            snap_to_grid: false,
+        };
+        store.update_widget_layout(focus.clone()).unwrap();
+
+        assert_eq!(
+            store
+                .get_widget_layout(Some("display-two".into()), WallpaperTemplate::Focus)
+                .unwrap(),
+            focus
+        );
+        assert_eq!(
+            store
+                .get_widget_layout(Some("display-two".into()), WallpaperTemplate::Kanban)
+                .unwrap(),
+            WidgetLayout::defaults_for(Some("display-two".into()), WallpaperTemplate::Kanban)
+        );
+
+        let reset = store
+            .reset_widget_layout(Some("display-two".into()), WallpaperTemplate::Focus)
+            .unwrap();
+        assert_eq!(
+            reset,
+            WidgetLayout::defaults_for(Some("display-two".into()), WallpaperTemplate::Focus)
+        );
+    }
+
+    #[test]
+    fn rejects_widget_layouts_outside_the_visible_surface() {
+        let store = AppStore::in_memory().unwrap();
+        let error = store
+            .update_widget_layout(WidgetLayout {
+                monitor_id: None,
+                template: WallpaperTemplate::Focus,
+                x: 0.80,
+                y: 0.10,
+                width: 0.30,
+                height: 0.50,
+                locked: false,
+                snap_to_grid: true,
+            })
+            .unwrap_err();
+        assert_eq!(
+            error,
+            "Widget yerleşimi görünür ekran sınırları içinde olmalıdır."
+        );
+
+        let oversized = store
+            .update_widget_layout(WidgetLayout {
+                monitor_id: None,
+                template: WallpaperTemplate::Focus,
+                x: 0.01,
+                y: 0.01,
+                width: 0.79,
+                height: 0.50,
+                locked: false,
+                snap_to_grid: true,
+            })
+            .unwrap_err();
+        assert_eq!(oversized, "Widget boyutu izin verilen aralıkta olmalıdır.");
     }
 
     #[test]

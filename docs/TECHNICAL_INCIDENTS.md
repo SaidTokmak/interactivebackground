@@ -349,3 +349,46 @@ Release binary gerçek kullanıcı veritabanında `--hidden` çalıştırıldı;
 `monitor_backgrounds` tablosunun yedi beklenen sütunla oluştuğu, mevcut görev ve
 uygulama ayarlarının değişmediği salt okunur sorguyla doğrulandı. NSIS ile iki
 MSI paketi asset protocol ve dialog eklentileriyle başarıyla üretildi.
+
+## FEATURE-008 — Sınırlandırılmış widget yerleşim motoru
+
+- Tarih: 15 Temmuz 2026
+- Durum: Uygulandı ve sınır testleriyle doğrulandı
+- Final rapora dahil et: Evet
+
+Görev alanının konumu global ayarlara eklenmedi; `widget_layouts` tablosunda
+monitör anahtarı ile `focus`/`kanban` şablonundan oluşan birleşik anahtarla
+tutuldu. Konum ve boyut değerleri 0–1 aralığında normalize edildi. Böylece
+fiziksel piksel ölçüsü veya DPI değişse bile widget monitörde aynı göreli alanı
+kaplar; henüz kaydı olmayan ya da sonradan yeniden bağlanan monitör güvenli
+şablon varsayılanını alır.
+
+Yerleşim yalnızca düzenleme modunda değiştirilebilir. Başlık alanı sürükleme
+tutamağı, kenar ve köşelerdeki sekiz görünmez tutamak yeniden boyutlandırma
+noktasıdır. Pointer capture, imleç widget dışına çıksa bile etkileşimi kontrollü
+bitirir. Hareket sırasında React yalnızca yerel canlı yerleşimi günceller;
+pointer bırakıldığında tek SQLite yazımı yapılır. Böylece yüksek frekanslı fare
+olayları veritabanına taşınmaz.
+
+Motor yüzde 1,5 görünür kenar payı, çözünürlüğe göre hesaplanan en az 280×250
+piksel eşdeğeri, yüzde 78 maksimum genişlik/yükseklik, isteğe bağlı yüzde 2,5
+grid ve 12 piksel kenara yapışma uygular. Son koordinatlar tekrar sınırlandırılıp
+yuvarlanır. Aynı minimum/maksimum ve görünür alan kuralları Rust katmanında da
+doğrulanır; frontend atlatılsa bile geçersiz veya sonlu olmayan değer SQLite'a
+yazılamaz. İlk uygulamada arayüzün yüzde 97'ye kadar büyümeye izin verip Rust'ın
+daha erken reddedebilmesi ihtimali bulundu; maksimum yüzde 78 kuralı iki
+katmanda ortaklaştırılarak kaydetme sonrası geri sıçrama engellendi.
+
+Kilit açıkken sürükleme ve yeniden boyutlandırma tutamakları devre dışıdır.
+Grid tercihi, kilit durumu, konum ve boyut birlikte saklanır; tek komutla ilgili
+monitör/şablon kaydı silinip varsayılana dönülür. `widget-layout-changed` olayı
+yönetim ve wallpaper pencerelerinin aynı yerleşimi yeniden okumasını sağlar.
+Rust testleri monitör ve şablon ayrımını, sıfırlamayı, ekran dışı koordinatları
+ve maksimum boyut reddini kapsar; TypeScript üretim derlemesi pointer motoru ve
+iki dildeki kontrol yüzeyini doğrular.
+
+Release binary `--hidden` ile gerçek kullanıcı veritabanında çalıştırıldı.
+Sekiz beklenen sütuna sahip `widget_layouts` tablosunun oluştuğu, ilk açılışta
+gereksiz satır yazılmadığı, mevcut beş görevin ve uygulama ayarlarının aynen
+korunduğu salt okunur SQLite sorgusuyla teyit edildi. Aynı derlemeden NSIS ile
+Türkçe ve İngilizce MSI paketleri başarıyla üretildi.
