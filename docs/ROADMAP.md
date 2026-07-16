@@ -343,6 +343,17 @@ ve yatay taşma etkileşimli tarayıcı regresyonuyla doğrulandı.
 Kabul ölçütü: Birden fazla saat widget'ı farklı saat dilimi ve formatlarla aynı
 anda doğru çalışır; yeniden başlatmada ayarlar korunur.
 
+**Tamamlandı.** Saat widget'ı dijital ve gerçek analog yüz seçenekleriyle
+yenilendi. Her saat örneği sistem/12/24 saat biçimini, sistem veya seçili IANA
+saat dilimini, saniye, tarih ve gün görünürlüğünü bağımsız saklıyor; kısa saat
+dilimi adı widget başlığında gösteriliyor. `desktop_widgets.settings_json`
+sütunu ve sürümlü typed `ClockWidgetSettings` modeli eklendi. Eski saatler
+migration sırasında veri kaybetmeden v1 varsayılanlarına taşınıyor, çoğaltılan
+saat kaynak ayarlarını devralıyor. İki farklı saat diliminin yeniden açılışta
+korunması ve eski veritabanı migration'ı 29 Rust testiyle; analog İstanbul ve
+dijital New York saatlerinin eşzamanlı çalışması production browser
+regresyonuyla doğrulandı.
+
 ### 9.8 — Wallpaper koleksiyonu ve masaüstü temizliği
 
 - Gerçek wallpaper yüzeyinden uygulama logosu, marka adı, `Projects`, `Recycle
@@ -387,6 +398,6 @@ korunur ve beta checklist'in bütün kritik maddeleri geçer.
 
 ## Önerilen bir sonraki çalışma
 
-Faz 9.7 ile devam edilmeli; Saat widget'ına bağımsız ve sürümlenebilir ayar
-modeli üzerinde analog/dijital görünüm, 12/24 saat biçimi, saat dilimi, saniye ve
-tarih seçenekleri eklenmelidir.
+Faz 9.8 ile devam edilmeli; gerçek wallpaper yüzeyindeki marka/dummy masaüstü
+içeriği temizlenmeli ve açık-koyu modern tema koleksiyonu gerçek render yoluyla
+hazırlanmalıdır.

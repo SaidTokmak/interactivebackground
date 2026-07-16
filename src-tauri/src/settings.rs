@@ -106,6 +106,68 @@ pub struct WidgetPackage {
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub enum ClockStyle {
+    Digital,
+    Analog,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ClockHourFormat {
+    System,
+    Hour12,
+    Hour24,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClockWidgetSettings {
+    pub version: u8,
+    pub style: ClockStyle,
+    pub hour_format: ClockHourFormat,
+    pub time_zone: Option<String>,
+    pub show_seconds: bool,
+    pub show_date: bool,
+    pub show_weekday: bool,
+}
+
+impl Default for ClockWidgetSettings {
+    fn default() -> Self {
+        Self {
+            version: 1,
+            style: ClockStyle::Digital,
+            hour_format: ClockHourFormat::System,
+            time_zone: None,
+            show_seconds: true,
+            show_date: true,
+            show_weekday: true,
+        }
+    }
+}
+
+impl ClockWidgetSettings {
+    pub fn validate(mut self) -> Result<Self, String> {
+        if self.version != 1 {
+            return Err("Desteklenmeyen saat ayarı sürümü.".into());
+        }
+        self.time_zone = self
+            .time_zone
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty());
+        if self.time_zone.as_ref().is_some_and(|zone| {
+            zone.len() > 64
+                || !zone.chars().all(|character| {
+                    character.is_ascii_alphanumeric() || "/_+-".contains(character)
+                })
+        }) {
+            return Err("Saat dilimi geçerli bir IANA tanımlayıcısı olmalıdır.".into());
+        }
+        Ok(self)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum StarterLayout {
     Focus,
     Planning,
@@ -142,6 +204,8 @@ pub struct DesktopWidget {
     pub snap_to_grid: bool,
     pub visible: bool,
     pub sort_order: i64,
+    #[serde(default)]
+    pub clock_settings: Option<ClockWidgetSettings>,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -415,10 +479,11 @@ impl DesktopWidget {
             snap_to_grid: true,
             visible: true,
             sort_order,
+            clock_settings: (kind == WidgetKind::Clock).then(ClockWidgetSettings::default),
         }
     }
 
-    pub fn validate(self) -> Result<Self, String> {
+    pub fn validate(mut self) -> Result<Self, String> {
         if ![self.x, self.y, self.width, self.height]
             .into_iter()
             .all(f64::is_finite)
@@ -438,6 +503,11 @@ impl DesktopWidget {
         {
             return Err("Widget yerleşimi görünür ekran sınırları içinde olmalıdır.".into());
         }
+        self.clock_settings = if self.kind == WidgetKind::Clock {
+            Some(self.clock_settings.unwrap_or_default().validate()?)
+        } else {
+            None
+        };
         Ok(self)
     }
 

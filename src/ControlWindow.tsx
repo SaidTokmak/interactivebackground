@@ -3,7 +3,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { chooseBackgroundImage as openBackgroundImage, completeOnboarding, getDesktopHostStatus, getOnboardingStatus, hideWallpaper, isTauriRuntime, showWallpaper } from "./taskApi";
-import type { BackgroundFit, BackgroundPreset, DesktopHostStatus, LanguagePreference, OnboardingPreferences, ThemePreference, WidgetKind } from "./types";
+import type { BackgroundFit, BackgroundPreset, ClockWidgetSettings, DesktopHostStatus, LanguagePreference, OnboardingPreferences, ThemePreference, WidgetKind } from "./types";
 import { useI18n } from "./i18n";
 import type { TranslationKey } from "./i18n/locales/en";
 import { useBackgroundSettings } from "./useBackgroundSettings";
@@ -186,6 +186,7 @@ export function ControlWindow() {
 
   const selectedWidget = widgets.find((widget) => widget.id === selectedWidgetId) ?? null;
   const selectedWidgetIndex = selectedWidget ? widgets.findIndex((widget) => widget.id === selectedWidget.id) : -1;
+  const selectedClockSettings = selectedWidget?.kind === "clock" ? (selectedWidget.clockSettings ?? DEFAULT_CLOCK_SETTINGS) : null;
 
   return (
     <main className="app-shell">
@@ -295,6 +296,17 @@ export function ControlWindow() {
                   <label className="switch-row"><input type="checkbox" checked={selectedWidget.locked} onChange={(event) => void saveWidget({ ...selectedWidget, locked: event.target.checked })} /><span><b>{t("layout.lock")}</b><small>{t("widgets.lockHelp")}</small></span></label>
                   <label className="switch-row"><input type="checkbox" checked={selectedWidget.snapToGrid} onChange={(event) => void saveWidget({ ...selectedWidget, snapToGrid: event.target.checked })} /><span><b>{t("layout.grid")}</b><small>{t("widgets.gridHelp")}</small></span></label>
                 </div>
+                {selectedWidget.kind === "clock" && selectedClockSettings && <section className="clock-settings-panel">
+                  <div className="clock-settings-heading"><h4>{t("clock.settingsTitle")}</h4><span>{t("clock.settingsHelp")}</span></div>
+                  <div className="clock-style-picker" role="group" aria-label={t("clock.style")}>{(["digital", "analog"] as const).map((style) => <button className={selectedClockSettings.style === style ? "active" : ""} onClick={() => void saveWidget({ ...selectedWidget, clockSettings: { ...selectedClockSettings, style } })} key={style}>{t(`clock.${style}` as TranslationKey)}</button>)}</div>
+                  <label className="clock-setting-field"><span>{t("clock.hourFormat")}</span><select value={selectedClockSettings.hourFormat} onChange={(event) => void saveWidget({ ...selectedWidget, clockSettings: { ...selectedClockSettings, hourFormat: event.target.value as ClockWidgetSettings["hourFormat"] } })}><option value="system">{t("clock.formatSystem")}</option><option value="hour12">{t("clock.format12")}</option><option value="hour24">{t("clock.format24")}</option></select></label>
+                  <label className="clock-setting-field"><span>{t("clock.timeZone")}</span><select value={selectedClockSettings.timeZone ?? ""} onChange={(event) => void saveWidget({ ...selectedWidget, clockSettings: { ...selectedClockSettings, timeZone: event.target.value || null } })}><option value="">{t("clock.systemTimeZone")}</option>{CLOCK_TIME_ZONES.map((zone) => <option value={zone} key={zone}>{zone.replace(/_/g, " ")}</option>)}</select></label>
+                  <div className="clock-option-switches">
+                    <label className="switch-row"><input type="checkbox" checked={selectedClockSettings.showSeconds} onChange={(event) => void saveWidget({ ...selectedWidget, clockSettings: { ...selectedClockSettings, showSeconds: event.target.checked } })} /><span><b>{t("clock.showSeconds")}</b></span></label>
+                    <label className="switch-row"><input type="checkbox" checked={selectedClockSettings.showDate} onChange={(event) => void saveWidget({ ...selectedWidget, clockSettings: { ...selectedClockSettings, showDate: event.target.checked } })} /><span><b>{t("clock.showDate")}</b></span></label>
+                    <label className="switch-row"><input type="checkbox" checked={selectedClockSettings.showWeekday} onChange={(event) => void saveWidget({ ...selectedWidget, clockSettings: { ...selectedClockSettings, showWeekday: event.target.checked } })} /><span><b>{t("clock.showWeekday")}</b></span></label>
+                  </div>
+                </section>}
                 {selectedWidget.kind === "pomodoro" && pomodoros[selectedWidget.id] && <div className="pomodoro-settings inspector-pomodoro">
                   <label>{t("pomodoro.workShort")}<input key={`work-${pomodoros[selectedWidget.id].workMinutes}`} type="number" min="1" max="180" defaultValue={pomodoros[selectedWidget.id].workMinutes} onBlur={(event) => void savePomodoroDurations(selectedWidget.id, Number(event.currentTarget.value), pomodoros[selectedWidget.id].breakMinutes)} /></label>
                   <label>{t("pomodoro.breakShort")}<input key={`break-${pomodoros[selectedWidget.id].breakMinutes}`} type="number" min="1" max="60" defaultValue={pomodoros[selectedWidget.id].breakMinutes} onBlur={(event) => void savePomodoroDurations(selectedWidget.id, pomodoros[selectedWidget.id].workMinutes, Number(event.currentTarget.value))} /></label>
@@ -475,3 +487,6 @@ function widgetIcon(kind: WidgetKind) {
   if (kind === "dailyVerse") return "◇";
   return "☾";
 }
+
+const DEFAULT_CLOCK_SETTINGS: ClockWidgetSettings = { version: 1, style: "digital", hourFormat: "system", timeZone: null, showSeconds: true, showDate: true, showWeekday: true };
+const CLOCK_TIME_ZONES = ["UTC", "Europe/Istanbul", "Europe/London", "Europe/Berlin", "America/New_York", "America/Los_Angeles", "Asia/Dubai", "Asia/Tokyo", "Asia/Shanghai", "Australia/Sydney"];

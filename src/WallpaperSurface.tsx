@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { BackgroundSettings, DesktopWidget, LanguagePreference, PomodoroAction, PomodoroState, Task, TaskStatus, WidgetKind } from "./types";
+import type { BackgroundSettings, ClockWidgetSettings, DesktopWidget, LanguagePreference, PomodoroAction, PomodoroState, Task, TaskStatus, WidgetKind } from "./types";
 import appIcon from "./assets/interactivebackground-icon.png";
 import { useI18n } from "./i18n";
 import type { TranslationKey } from "./i18n/locales/en";
@@ -183,7 +183,22 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
       </div>;
     }
     if (widget.kind === "clock") {
-      return <div className="clock-body"><strong>{formatClock(now, language)}</strong><span>{formatDate(now, "long")}</span></div>;
+      const clock = widget.clockSettings ?? defaultClockSettings();
+      const dateLine = formatClockDate(now, language, clock);
+      if (clock.style === "analog") {
+        const hands = clockHandAngles(now, clock.timeZone);
+        return <div className="clock-body analog-clock-body">
+          <div className="analog-clock" aria-label={formatClock(now, language, clock)}>
+            {Array.from({ length: 12 }, (_, index) => <i className="analog-tick" style={{ transform: `rotate(${index * 30}deg)` }} key={index} />)}
+            <span className="analog-hand hour-hand" style={{ transform: `rotate(${hands.hour}deg)` }} />
+            <span className="analog-hand minute-hand" style={{ transform: `rotate(${hands.minute}deg)` }} />
+            {clock.showSeconds && <span className="analog-hand second-hand" style={{ transform: `rotate(${hands.second}deg)` }} />}
+            <b className="analog-pin" />
+          </div>
+          {dateLine && <span>{dateLine}</span>}
+        </div>;
+      }
+      return <div className="clock-body"><strong>{formatClock(now, language, clock)}</strong>{dateLine && <span>{dateLine}</span>}</div>;
     }
     if (widget.kind === "dailyPoem" || widget.kind === "dailyVerse" || widget.kind === "dailyHadith") {
       const content = getDailyContent(widget.kind, language, now);
@@ -233,7 +248,7 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
             <span aria-hidden="true"><i /></span><small>{widget.locked ? `🔒 ${t("layout.lockedBadge")}` : t("layout.dragHere")}</small>
           </div>}
           <div className="widget-header">
-            <div><h3>{widgetTitle(widget.kind, t)}</h3>{taskWidget && <span>{formatDate(now, "long")}</span>}</div>
+            <div><h3>{widgetTitle(widget.kind, t)}</h3>{taskWidget && <span>{formatDate(now, "long")}</span>}{widget.kind === "clock" && <span>{clockZoneLabel(now, language, widget.clockSettings?.timeZone ?? null)}</span>}</div>
             {taskWidget && <div className="progress-circle" style={{ "--progress": `${progress * 3.6}deg` } as CSSProperties}><b>{completed}/{tasks.length}</b></div>}
           </div>
           {widgetContent(widget)}
@@ -308,7 +323,43 @@ function pomodoroRemaining(state: PomodoroState | undefined, now: Date) {
 
 function formatDuration(seconds: number) { return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`; }
 function resolveLocale(language: LanguagePreference) { return language === "system" ? navigator.language : language === "tr" ? "tr-TR" : "en-US"; }
-function formatClock(date: Date, language: LanguagePreference) { return new Intl.DateTimeFormat(resolveLocale(language), { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(date); }
+function defaultClockSettings(): ClockWidgetSettings { return { version: 1, style: "digital", hourFormat: "system", timeZone: null, showSeconds: true, showDate: true, showWeekday: true }; }
+function formatClock(date: Date, language: LanguagePreference, settings: ClockWidgetSettings) {
+  return new Intl.DateTimeFormat(resolveLocale(language), {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: settings.showSeconds ? "2-digit" : undefined,
+    hour12: settings.hourFormat === "system" ? undefined : settings.hourFormat === "hour12",
+    timeZone: settings.timeZone ?? undefined,
+  }).format(date);
+}
+function formatClockDate(date: Date, language: LanguagePreference, settings: ClockWidgetSettings) {
+  if (!settings.showDate && !settings.showWeekday) return "";
+  return new Intl.DateTimeFormat(resolveLocale(language), {
+    day: settings.showDate ? "2-digit" : undefined,
+    month: settings.showDate ? "long" : undefined,
+    year: settings.showDate ? "numeric" : undefined,
+    weekday: settings.showWeekday ? "long" : undefined,
+    timeZone: settings.timeZone ?? undefined,
+  }).format(date);
+}
+function clockZoneLabel(date: Date, language: LanguagePreference, timeZone: string | null) {
+  const parts = new Intl.DateTimeFormat(resolveLocale(language), { timeZone: timeZone ?? undefined, timeZoneName: "short" }).formatToParts(date);
+  return parts.find((part) => part.type === "timeZoneName")?.value ?? timeZone ?? "";
+}
+function clockHandAngles(date: Date, timeZone: string | null) {
+  const values = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
+    timeZone: timeZone ?? undefined,
+    hour: "numeric",
+    minute: "numeric",
+    second: "numeric",
+    hourCycle: "h23",
+  }).formatToParts(date).map((part) => [part.type, part.value]));
+  const hour = Number(values.hour ?? 0);
+  const minute = Number(values.minute ?? 0);
+  const second = Number(values.second ?? 0);
+  return { hour: (hour % 12) * 30 + minute * .5, minute: minute * 6 + second * .1, second: second * 6 };
+}
 async function openExternal(url: string) {
   if (isTauriRuntime()) await openUrl(url);
   else window.open(url, "_blank", "noopener,noreferrer");

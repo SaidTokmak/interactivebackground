@@ -228,6 +228,7 @@ export async function duplicateDesktopWidget(id: number): Promise<DesktopWidget>
     width: original.width,
     height: original.height,
     snapToGrid: original.snapToGrid,
+    clockSettings: original.clockSettings ? { ...original.clockSettings } : null,
   };
   return updateDesktopWidget(updated);
 }
@@ -370,7 +371,11 @@ function defaultDesktopWidget(monitorId: string | null, kind: WidgetKind, id: nu
   };
   const [baseX, baseY, width, height] = frames[kind];
   const offset = (sortOrder % 6) * 0.025;
-  return { id, monitorId, kind, x: Math.min(baseX + offset, 0.985 - width), y: Math.min(baseY + offset, 0.985 - height), width, height, locked: false, snapToGrid: true, visible: true, sortOrder };
+  return { id, monitorId, kind, x: Math.min(baseX + offset, 0.985 - width), y: Math.min(baseY + offset, 0.985 - height), width, height, locked: false, snapToGrid: true, visible: true, sortOrder, clockSettings: kind === "clock" ? defaultClockSettings() : null };
+}
+
+function defaultClockSettings(): import("./types").ClockWidgetSettings {
+  return { version: 1, style: "digital", hourFormat: "system", timeZone: null, showSeconds: true, showDate: true, showWeekday: true };
 }
 
 function defaultPomodoro(widgetId: number): PomodoroState {

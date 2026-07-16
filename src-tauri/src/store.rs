@@ -11,9 +11,10 @@ use crate::{
     model::{Task, TaskStatus},
     settings::{
         AppSettings, BackgroundFit, BackgroundPreset, BackgroundSettings, BackgroundSource,
-        DesktopWidget, LanguagePreference, OnboardingPreferences, OnboardingStatus, PomodoroAction,
-        PomodoroCompletion, PomodoroMode, PomodoroPreferences, PomodoroState, StarterLayout,
-        ThemePreference, WallpaperTemplate, WidgetKind, WidgetLayout, WidgetPackage,
+        ClockWidgetSettings, DesktopWidget, LanguagePreference, OnboardingPreferences,
+        OnboardingStatus, PomodoroAction, PomodoroCompletion, PomodoroMode, PomodoroPreferences,
+        PomodoroState, StarterLayout, ThemePreference, WallpaperTemplate, WidgetKind, WidgetLayout,
+        WidgetPackage,
     },
 };
 
@@ -111,7 +112,8 @@ impl AppStore {
                      locked INTEGER NOT NULL DEFAULT 0 CHECK (locked IN (0, 1)),
                      snap_to_grid INTEGER NOT NULL DEFAULT 1 CHECK (snap_to_grid IN (0, 1)),
                      visible INTEGER NOT NULL DEFAULT 1 CHECK (visible IN (0, 1)),
-                     sort_order INTEGER NOT NULL DEFAULT 0
+                     sort_order INTEGER NOT NULL DEFAULT 0,
+                     settings_json TEXT NOT NULL DEFAULT '{}'
                  );
 
                  CREATE INDEX IF NOT EXISTS desktop_widgets_monitor_order
@@ -167,6 +169,7 @@ impl AppStore {
         ensure_theme_column(&connection)?;
         ensure_language_column(&connection)?;
         migrate_desktop_widget_kind_constraint(&mut connection)?;
+        ensure_widget_settings_column(&connection)?;
         migrate_widget_layouts(&mut connection)?;
         let onboarding_migrated = connection
             .query_row(
@@ -614,7 +617,7 @@ impl AppStore {
         let monitor_key = background_monitor_key(monitor_id.as_deref());
         let mut statement = connection
             .prepare(
-                "SELECT id, kind, x, y, width, height, locked, snap_to_grid, visible, sort_order
+                "SELECT id, kind, x, y, width, height, locked, snap_to_grid, visible, sort_order, settings_json
                  FROM desktop_widgets WHERE monitor_key = ?1
                  ORDER BY sort_order ASC, id ASC",
             )
@@ -748,8 +751,8 @@ impl AppStore {
                 "UPDATE desktop_widgets SET
                     monitor_key = ?1, kind = ?2, x = ?3, y = ?4, width = ?5,
                     height = ?6, locked = ?7, snap_to_grid = ?8, visible = ?9,
-                    sort_order = ?10
-                 WHERE id = ?11",
+                    sort_order = ?10, settings_json = ?11
+                 WHERE id = ?12",
                 params![
                     background_monitor_key(widget.monitor_id.as_deref()),
                     widget.kind.as_database_value(),
@@ -761,6 +764,7 @@ impl AppStore {
                     widget.snap_to_grid,
                     widget.visible,
                     widget.sort_order,
+                    clock_settings_json(&widget)?,
                     widget.id,
                 ],
             )
@@ -1231,13 +1235,38 @@ fn desktop_widget_from_row(
         snap_to_grid: row.get(7)?,
         visible: row.get(8)?,
         sort_order: row.get(9)?,
+        clock_settings: clock_settings_from_json(kind, &row.get::<_, String>(10)?)?,
     })
+}
+
+fn clock_settings_from_json(
+    kind: WidgetKind,
+    value: &str,
+) -> rusqlite::Result<Option<ClockWidgetSettings>> {
+    if kind != WidgetKind::Clock {
+        return Ok(None);
+    }
+    if value.trim().is_empty() || value.trim() == "{}" {
+        return Ok(Some(ClockWidgetSettings::default()));
+    }
+    serde_json::from_str(value).map(Some).map_err(|error| {
+        rusqlite::Error::FromSqlConversionFailure(10, rusqlite::types::Type::Text, Box::new(error))
+    })
+}
+
+fn clock_settings_json(widget: &DesktopWidget) -> Result<String, String> {
+    if widget.kind != WidgetKind::Clock {
+        return Ok("{}".into());
+    }
+    let settings = widget.clock_settings.clone().unwrap_or_default();
+    serde_json::to_string(&settings)
+        .map_err(|error| format!("Saat widget ayarları kaydedilemedi: {error}"))
 }
 
 fn find_desktop_widget(connection: &Connection, id: i64) -> Result<DesktopWidget, String> {
     let (monitor_key, mut widget): (String, DesktopWidget) = connection
         .query_row(
-            "SELECT monitor_key, id, kind, x, y, width, height, locked, snap_to_grid, visible, sort_order
+            "SELECT monitor_key, id, kind, x, y, width, height, locked, snap_to_grid, visible, sort_order, settings_json
              FROM desktop_widgets WHERE id = ?1",
             [id],
             |row| {
@@ -1269,6 +1298,10 @@ fn find_desktop_widget(connection: &Connection, id: i64) -> Result<DesktopWidget
                         snap_to_grid: row.get(8)?,
                         visible: row.get(9)?,
                         sort_order: row.get(10)?,
+                        clock_settings: clock_settings_from_json(
+                            kind,
+                            &row.get::<_, String>(11)?,
+                        )?,
                     },
                 ))
             },
@@ -1386,8 +1419,8 @@ fn insert_desktop_widget(
     connection
         .execute(
             "INSERT INTO desktop_widgets
-                (monitor_key, kind, x, y, width, height, locked, snap_to_grid, visible, sort_order)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                (monitor_key, kind, x, y, width, height, locked, snap_to_grid, visible, sort_order, settings_json)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 monitor_key,
                 widget.kind.as_database_value(),
@@ -1399,6 +1432,7 @@ fn insert_desktop_widget(
                 widget.snap_to_grid,
                 widget.visible,
                 widget.sort_order,
+                clock_settings_json(widget)?,
             ],
         )
         .map_err(database_error)?;
@@ -1586,6 +1620,27 @@ fn ensure_language_column(connection: &Connection) -> Result<(), String> {
     Ok(())
 }
 
+fn ensure_widget_settings_column(connection: &Connection) -> Result<(), String> {
+    let mut statement = connection
+        .prepare("PRAGMA table_info(desktop_widgets)")
+        .map_err(database_error)?;
+    let column_names = statement
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(database_error)?
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .map_err(database_error)?;
+
+    if !column_names.iter().any(|name| name == "settings_json") {
+        connection
+            .execute(
+                "ALTER TABLE desktop_widgets ADD COLUMN settings_json TEXT NOT NULL DEFAULT '{}'",
+                [],
+            )
+            .map_err(database_error)?;
+    }
+    Ok(())
+}
+
 fn migrate_desktop_widget_kind_constraint(connection: &mut Connection) -> Result<(), String> {
     let table_sql: String = connection
         .query_row(
@@ -1620,7 +1675,8 @@ fn migrate_desktop_widget_kind_constraint(connection: &mut Connection) -> Result
                      locked INTEGER NOT NULL DEFAULT 0 CHECK (locked IN (0, 1)),
                      snap_to_grid INTEGER NOT NULL DEFAULT 1 CHECK (snap_to_grid IN (0, 1)),
                      visible INTEGER NOT NULL DEFAULT 1 CHECK (visible IN (0, 1)),
-                     sort_order INTEGER NOT NULL DEFAULT 0
+                     sort_order INTEGER NOT NULL DEFAULT 0,
+                     settings_json TEXT NOT NULL DEFAULT '{}'
                  );
                  INSERT INTO desktop_widgets
                      (id, monitor_key, kind, x, y, width, height, locked, snap_to_grid, visible, sort_order)
@@ -2379,6 +2435,41 @@ mod tests {
     }
 
     #[test]
+    fn migrates_existing_clocks_to_versioned_default_settings() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE app_settings (
+                    id INTEGER PRIMARY KEY CHECK (id = 1), template TEXT NOT NULL,
+                    opacity INTEGER NOT NULL, edit_mode INTEGER NOT NULL
+                 );
+                 INSERT INTO app_settings VALUES (1, 'focus', 82, 0);
+                 CREATE TABLE desktop_widgets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    monitor_key TEXT NOT NULL,
+                    kind TEXT NOT NULL CHECK (kind IN ('focus', 'kanban', 'pomodoro', 'clock', 'date', 'daily_poem', 'daily_verse', 'daily_hadith')),
+                    x REAL NOT NULL, y REAL NOT NULL, width REAL NOT NULL, height REAL NOT NULL,
+                    locked INTEGER NOT NULL DEFAULT 0, snap_to_grid INTEGER NOT NULL DEFAULT 1,
+                    visible INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0
+                 );
+                 INSERT INTO desktop_widgets
+                    (monitor_key, kind, x, y, width, height, locked, snap_to_grid, visible, sort_order)
+                 VALUES ('__primary__', 'clock', .05, .50, .17, .14, 0, 1, 1, 0);",
+            )
+            .unwrap();
+
+        let store = AppStore::from_connection(connection).unwrap();
+        let clock = store
+            .list_desktop_widgets(None)
+            .unwrap()
+            .into_iter()
+            .find(|widget| widget.kind == WidgetKind::Clock)
+            .unwrap();
+
+        assert_eq!(clock.clock_settings, Some(ClockWidgetSettings::default()));
+    }
+
+    #[test]
     fn migrates_legacy_widget_layouts_once() {
         let connection = Connection::open_in_memory().unwrap();
         connection
@@ -2445,6 +2536,36 @@ mod tests {
                     language: LanguagePreference::En,
                 })
                 .unwrap();
+            let istanbul = store.add_desktop_widget(None, WidgetKind::Clock).unwrap();
+            store
+                .update_desktop_widget(DesktopWidget {
+                    clock_settings: Some(ClockWidgetSettings {
+                        version: 1,
+                        style: crate::settings::ClockStyle::Analog,
+                        hour_format: crate::settings::ClockHourFormat::Hour24,
+                        time_zone: Some("Europe/Istanbul".into()),
+                        show_seconds: false,
+                        show_date: true,
+                        show_weekday: true,
+                    }),
+                    ..istanbul
+                })
+                .unwrap();
+            let new_york = store.add_desktop_widget(None, WidgetKind::Clock).unwrap();
+            store
+                .update_desktop_widget(DesktopWidget {
+                    clock_settings: Some(ClockWidgetSettings {
+                        version: 1,
+                        style: crate::settings::ClockStyle::Digital,
+                        hour_format: crate::settings::ClockHourFormat::Hour12,
+                        time_zone: Some("America/New_York".into()),
+                        show_seconds: true,
+                        show_date: false,
+                        show_weekday: false,
+                    }),
+                    ..new_york
+                })
+                .unwrap();
         }
 
         {
@@ -2467,6 +2588,24 @@ mod tests {
                     language: LanguagePreference::En,
                 }
             );
+            let clocks = reopened_store
+                .list_desktop_widgets(None)
+                .unwrap()
+                .into_iter()
+                .filter(|widget| widget.kind == WidgetKind::Clock)
+                .filter_map(|widget| widget.clock_settings)
+                .collect::<Vec<_>>();
+            assert_eq!(clocks.len(), 2);
+            assert!(clocks.iter().any(|settings| {
+                settings.style == crate::settings::ClockStyle::Analog
+                    && settings.time_zone.as_deref() == Some("Europe/Istanbul")
+                    && settings.hour_format == crate::settings::ClockHourFormat::Hour24
+            }));
+            assert!(clocks.iter().any(|settings| {
+                settings.style == crate::settings::ClockStyle::Digital
+                    && settings.time_zone.as_deref() == Some("America/New_York")
+                    && settings.hour_format == crate::settings::ClockHourFormat::Hour12
+            }));
         }
 
         std::fs::remove_file(database_path).unwrap();

@@ -48,6 +48,19 @@ export type WidgetPackage = {
   permissions: string[];
 };
 
+export type ClockStyle = "digital" | "analog";
+export type ClockHourFormat = "system" | "hour12" | "hour24";
+
+export type ClockWidgetSettings = {
+  version: 1;
+  style: ClockStyle;
+  hourFormat: ClockHourFormat;
+  timeZone: string | null;
+  showSeconds: boolean;
+  showDate: boolean;
+  showWeekday: boolean;
+};
+
 export type DesktopWidget = {
   id: number;
   monitorId: string | null;
@@ -60,6 +73,7 @@ export type DesktopWidget = {
   snapToGrid: boolean;
   visible: boolean;
   sortOrder: number;
+  clockSettings: ClockWidgetSettings | null;
 };
 
 export type PomodoroMode = "work" | "break";
