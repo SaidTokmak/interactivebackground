@@ -147,6 +147,158 @@ arka planları kayıpsız taşır; eski kopyayı korur. Elle tetiklenen release 
 testleri çalıştırır, imzalı updater artifact'ı, `latest.json`, NSIS/MSI paketleri
 ve SHA-256 checksum dosyası üretir.
 
+## Faz 9 — Stabilizasyon, yerleşim motoru ve ürün sadeleştirmesi
+
+Durum: Planlandı — kullanıcı kabul testi geri bildirimleri işlendi.
+
+Bu faz yeni özellik sayısını artırmadan önce mevcut masaüstü deneyimini güvenilir,
+ölçekli ve anlaşılır hale getirir. Aşağıdaki sıra bağımlılık sırasıdır; görsel
+yenileme, hatalı pencere yaşam döngüsünün ve ortak yerleşim geometrisinin üzerine
+kurulmazsa aynı sorunları farklı biçimde tekrar üretir.
+
+### 9.1 — Pencere yaşam döngüsü ve kritik dönüş hatası
+
+- Wallpaper üzerindeki `Yönetim paneline dön` akışından sonra wallpaper'ın aynı
+  süreç içinde tekrar oluşturulup WorkerW katmanına bağlanamaması düzeltilecek.
+- `control` görünürlüğü ile wallpaper'ın varlığı/görünürlüğü ayrı durumlar olarak
+  ele alınacak; buton etiketi eski React state'ine değil native durum makinesine
+  dayanacak.
+- Aç → yönetime dön → tekrar aç döngüsü en az 20 tekrar, ikinci monitör ve 4K
+  monitör senaryolarıyla regresyon testine alınacak.
+- Pencere yok etme, yeniden oluşturma, event sırası ve yönetim penceresinin X ile
+  tray'e gizlenmesi tek bir yaşam döngüsü sözleşmesine bağlanacak.
+
+Kabul ölçütü: Yönetim ve wallpaper arasında sınırsız geçiş yapılabilir; süreç
+kapanmaz, siyah pencere kalmaz ve hedef monitör değişmez.
+
+### 9.2 — Ortak ölçekli preview ve yerleşim motoru v2
+
+- Yönetim preview'su seçilen fiziksel monitörün gerçek en-boy oranını koruyan
+  letterbox canvas kullanacak. Preview ile wallpaper aynı normalize koordinat,
+  minimum boyut ve çarpışma kurallarını paylaşacak.
+- Preview içindeki widget'lar doğrudan sürüklenip yeniden boyutlandırılabilecek;
+  yapılan değişiklik gerçek wallpaper'a anında yansıyacak.
+- Sabit yüzde 2,5 grid yerine varsayılan yüzde 0,5–1 aralığında ince grid
+  kullanılacak. Grid yoğunluğu seçilebilir olacak; geçici serbest hareket için
+  değiştirici tuş ve hassas klavye nudge desteği eklenecek.
+- Widget minimum boyutları ve başlangıç ölçüleri küçültülecek. Tür başına ölçü
+  kuralları preview pikseline değil hedef monitör eşdeğerine göre hesaplanacak.
+- Widget'ların birbirini ezmesi engellenecek. Geçersiz alan kırmızı hayaletle
+  gösterilecek; bırakmada otomatik ve şaşırtıcı zincirleme itme yerine en yakın
+  boş konum önerilecek veya son geçerli konuma dönülecek.
+- Aynı çarpışma ve sınır doğrulaması Rust katmanında da uygulanacak; geçersiz
+  yerleşim frontend atlatılarak SQLite'a yazılamayacak.
+
+Kabul ölçütü: Preview ile gerçek ekranın yerleşimi aynı görünür; farklı DPI ve
+en-boy oranlarında widget'lar çakışmaz, görünür alanın dışına çıkmaz ve kullanıcı
+ince grid üzerinde hassas yerleşim yapabilir.
+
+### 9.3 — Widget yoğunluğu ve düzenleme affordance'ları
+
+- Kart padding, başlık yüksekliği, boş satırlar ve kontrol aralıkları azaltılacak;
+  içerik yoğunluğu widget boyutuna responsive hale getirilecek.
+- Düzenleme modunda her widget'ın üstünde ayrı bir sürükleme rayı/çizgisi ve kısa
+  tutma ipucu gösterilecek. Normal modda bu yüzey tamamen kaybolacak.
+- Resize kenarları görünür ama sakin tutamaklarla belirtilecek; kilitli durumun
+  yalnızca renk değil ikon/metinle de anlaşılması sağlanacak.
+- Etkileşim gerektiren widget'larda kontrollerin yalnızca etkileşim/düzenleme
+  modunda çalıştığını belirten kısa alt bilgi gösterilecek. Devre dışı kontroller
+  disabled semantiği ve açıklayıcı tooltip kullanacak.
+- Mevcut `Focus` düğmesi işlevsiz dekoratif kontrol olduğu için kaldırılacak.
+  Daha sonra Pomodoro başlatma veya tek görevi öne çıkarma davranışı açıkça
+  tanımlanırsa yeni adı ve gerçek işleviyle geri eklenecek.
+
+Kabul ölçütü: İlk kez kullanan biri yardım okumadan widget'ı nereden taşıyacağını,
+nasıl boyutlandıracağını ve bir kontrolün neden pasif olduğunu anlayabilir.
+
+### 9.4 — Yönetim paneli bilgi mimarisi ve görsel düzen
+
+- Sabit ve sıkışık iki kolon yerine görevler, masaüstü canvas'ı ve seçili widget
+  ayarlarını ayıran responsive çalışma alanı kurulacak.
+- Widget kataloğu sürekli buton kalabalığı olarak görünmeyecek; `Widget ekle`
+  akışı ve seçili widget inspector'ı kullanılacak.
+- Monitör, görünüm, arka plan ve davranış ayarları görev yönetiminden ayrılacak;
+  birincil/ikincil eylem hiyerarşisi ortaklaştırılacak.
+- Dar pencere ve 4K ölçeklemede canvas okunabilir kalacak; header ve kontrol
+  paneli gereksiz alan tüketmeyecek.
+
+Kabul ölçütü: Yönetim penceresinde yatay taşma veya üst üste binen kontrol
+oluşmaz; ana eylemler tek bakışta bulunur ve seçili widget ekrandan ayrılmadan
+düzenlenebilir.
+
+### 9.5 — Pomodoro bildirim ve ses güvenilirliği
+
+- Pomodoro tamamlanması uygulama açık, tray'de gizli ve wallpaper yeniden
+  oluşturulmuş durumlarda native bildirimle test edilecek.
+- Uygulama çalışırken paketlenmiş kısa bir tamamlanma sesi çalınacak; ses aç/kapat,
+  seviye ve `Sesi dene` ayarları sunulacak.
+- İşletim sistemi bildirim izni ilk ihtiyaçta açıklanarak istenecek; izin kapalıysa
+  kullanıcıya ayarlara yönlendiren durum gösterilecek.
+- Sistem sessiz modu veya Rahatsız Etmeyin tercihi uygulama tarafından aşılmayacak;
+  bu durumda görsel tamamlanma durumu yine korunacak.
+
+Kabul ölçütü: İzin verilen normal sistem koşullarında seans bitişi tek bildirim
+ve tek ses üretir; duraklatılan/sıfırlanan sayaç eski bildirimi tetiklemez.
+
+### 9.6 — Çekirdek widget'lar ve güvenli Widget Store
+
+- Varsayılan çekirdek katalog dört araçla sınırlandırılacak: Odak Görevleri,
+  Kanban, Pomodoro ve Saat. Tarih, Saat widget'ının görünüm seçeneklerinden biri
+  veya küçük eşlikçi görünümü olacak.
+- Günün şiiri, ayeti ve hadisi isteğe bağlı paketler olarak Widget Store'a
+  taşınacak. Mevcut kullanıcıların kurulu widget'ları migration sırasında
+  `installed` kabul edilecek ve silinmeyecek.
+- İlk Store sürümü internetten rastgele JavaScript/Rust kodu çalıştırmayacak.
+  Uygulamayla imzalı gelen, manifesti ve izinleri bilinen modüller yerel olarak
+  kurulup kaldırılacak. Uzak üçüncü taraf kodu; sandbox, imza, izin ve inceleme
+  modeli tasarlanmadan desteklenmeyecek.
+- Store kartlarında açıklama, kaynak, gerekli minimum alan, veri/ağ izinleri ve
+  kaldırma işleminin etkisi açıkça gösterilecek.
+
+Kabul ölçütü: Yeni kullanıcı yalnızca sade çekirdek kataloğu görür; isteğe bağlı
+widget yükleme/kaldırma veri kaybı veya uygulama yeniden başlatması gerektirmez.
+
+### 9.7 — Saat widget'ı v2
+
+- Dijital ve analog görünüm seçeneği.
+- `Sistem`, 12 saat ve 24 saat formatı.
+- Sistem saat dilimi veya IANA saat dilimi seçimi; seçilen bölgenin kısa adı.
+- İsteğe bağlı saniye, tarih ve gün gösterimi.
+- Widget'a özel ayarların genel tabloyu sürekli değiştirmeden genişleyebilmesi
+  için sürümlü `settings_json`/typed settings modeli ve migration.
+
+Kabul ölçütü: Birden fazla saat widget'ı farklı saat dilimi ve formatlarla aynı
+anda doğru çalışır; yeniden başlatmada ayarlar korunur.
+
+### 9.8 — Wallpaper koleksiyonu ve masaüstü temizliği
+
+- Gerçek wallpaper yüzeyinden uygulama logosu, marka adı, `Projects`, `Recycle
+  Bin` ve bütün dummy masaüstü öğeleri kaldırılacak. Düzenleme kılavuzları yalnızca
+  edit modunda gösterilecek.
+- En az dört koyu ve dört açık modern tema hazırlanacak; nötr, lacivert, grafit,
+  kırık beyaz ve sınırlı vurgu renkleri kullanılacak.
+- Tema preview'su ile gerçek wallpaper aynı asset/render yolunu kullanacak;
+  yalnızca küçük CSS taklidi gösterilmeyecek.
+- Açık ve koyu arka planlarda widget kontrastı otomatik okunabilirlik kontrolünden
+  geçecek; kullanıcı görseli için karartma/blur ayarları korunacak.
+
+Kabul ölçütü: Wallpaper üzerinde ürüne ait dummy içerik kalmaz; açık ve koyu
+tema ailesi 16:9, ultrawide ve 4K ekranlarda bozulmadan görünür.
+
+### 9.9 — Regresyon, performans ve beta kabul turu
+
+- Pencere yaşam döngüsü, çarpışma, grid, preview dönüşümü, saat ayarları ve
+  Pomodoro tamamlanması için Rust/TypeScript testleri.
+- 1080p, 1440p, 4K, farklı DPI, negatif monitör koordinatı ve ikinci monitör
+  senaryoları.
+- Mevcut kullanıcı widget'ları, özel arka planları ve ayarları için migration
+  snapshot testi.
+- Temiz `v0.2.0-beta` paketi üzerinde kullanıcı kabul turu; kritik olmayan yeni
+  özellikler bu tur tamamlanana kadar bekletilecek.
+
+Kabul ölçütü: Bildirilen kritik akışlar tekrar üretilemez, mevcut veriler
+korunur ve beta checklist'in bütün kritik maddeleri geçer.
+
 ## Ürün kararları ve sınırlar
 
 - “Birçok dil” tek seferde makine çevirisiyle yayınlanmayacak; önce altyapı ve
@@ -162,7 +314,7 @@ ve SHA-256 checksum dosyası üretir.
 
 ## Önerilen bir sonraki çalışma
 
-İlk yayın anahtarları güvenli biçimde oluşturulup GitHub repository ayarlarına
-eklenmeli, ardından `Windows release` akışı `v0.1.0` için çalıştırılmalıdır.
-Production sertifikası alınana kadar paketlerin Windows'ta bilinmeyen yayıncı
-uyarısı göstereceği kabul edilmelidir.
+Faz 9.1 ile başlanmalı; yönetim paneline dönüşten sonra wallpaper'ın tekrar
+açılamaması yaşam döngüsü ve event sırası seviyesinde düzeltilmelidir. Ardından
+preview/gerçek wallpaper için tek bir yerleşim motoru kurulmadan görsel panel
+yenilemesine veya Widget Store'a geçilmemelidir.
