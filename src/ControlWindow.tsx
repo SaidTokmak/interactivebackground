@@ -20,6 +20,7 @@ import { useLayoutGrid } from "./useLayoutGrid";
 import { MonitorPreview } from "./MonitorPreview";
 import { monitorLayoutViewport } from "./widgetLayout";
 import { usePomodoroAlerts } from "./usePomodoroAlerts";
+import { useWidgetStore } from "./useWidgetStore";
 
 export function ControlWindow() {
   const { tasks, error: taskError, addTask, toggleTask, moveTask, removeTask } = useTasks();
@@ -28,6 +29,7 @@ export function ControlWindow() {
   const { background, backgroundError, saveBackground } = useBackgroundSettings(settings.monitorId);
   const { widgets, pomodoros, widgetError, addWidget, saveWidget, duplicateWidget, removeWidget, moveWidget, controlPomodoro, savePomodoroDurations } = useDesktopWidgets(settings.monitorId);
   const { preferences: pomodoroPreferences, permission: notificationPermission, alertError, savePreferences: savePomodoroPreferences, requestNotificationPermission, testSound } = usePomodoroAlerts();
+  const { packages: widgetPackages, storeError, setInstalled: setWidgetInstalled } = useWidgetStore();
   const [title, setTitle] = useState("");
   const [time, setTime] = useState("");
   const [opacityDraft, setOpacityDraft] = useState(settings.opacity);
@@ -42,6 +44,7 @@ export function ControlWindow() {
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [selectedWidgetId, setSelectedWidgetId] = useState<number | null>(null);
   const [widgetPickerOpen, setWidgetPickerOpen] = useState(false);
+  const [widgetStoreOpen, setWidgetStoreOpen] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<"widget" | "background" | "workspace">("widget");
   const { gridSize, setGridSize, gridSizes } = useLayoutGrid();
 
@@ -227,7 +230,7 @@ export function ControlWindow() {
               </form>
             )}
 
-            {(taskError || settingsError || backgroundError || widgetError || alertError || monitorError || integrationError || desktopStatus?.warning) && <p className="error-message" role="alert">{localizeError(taskError || settingsError || backgroundError || widgetError || alertError || monitorError || integrationError || desktopStatus?.warning || "")}</p>}
+            {(taskError || settingsError || backgroundError || widgetError || storeError || alertError || monitorError || integrationError || desktopStatus?.warning) && <p className="error-message" role="alert">{localizeError(taskError || settingsError || backgroundError || widgetError || storeError || alertError || monitorError || integrationError || desktopStatus?.warning || "")}</p>}
 
             <div className="manager-list">
               {tasks.map((task) => (
@@ -266,9 +269,11 @@ export function ControlWindow() {
             <div className="add-widget-wrap">
               <button className="add-widget-button" onClick={() => setWidgetPickerOpen((open) => !open)}>＋ {t("widgets.add")}</button>
               {widgetPickerOpen && <div className="widget-picker" role="dialog" aria-label={t("widgets.catalogAria")}>
-                {(["focus", "kanban", "pomodoro", "clock", "date", "dailyPoem", "dailyVerse", "dailyHadith"] as WidgetKind[]).map((kind) => (
-                  <button onClick={() => void createWidget(kind)} key={kind}><span className={`widget-kind-icon kind-${kind}`}>{widgetIcon(kind)}</span><b>{widgetKindLabel(kind, t)}</b></button>
+                <span className="widget-picker-label">{t("store.installedCatalog")}</span>
+                {widgetPackages.filter((item) => item.installed).map((item) => (
+                  <button onClick={() => void createWidget(item.kind)} key={item.kind}><span className={`widget-kind-icon kind-${item.kind}`}>{widgetIcon(item.kind)}</span><span><b>{widgetKindLabel(item.kind, t)}</b><small>{t(item.source === "core" ? "store.core" : "store.installed")}</small></span></button>
                 ))}
+                <button className="open-store-button" onClick={() => { setWidgetPickerOpen(false); setWidgetStoreOpen(true); }}><span>◇</span><span><b>{t("store.open")}</b><small>{t("store.openHelp")}</small></span></button>
               </div>}
             </div>
           </div>
@@ -412,6 +417,23 @@ export function ControlWindow() {
           </div>
         </aside>
       </div>
+      {widgetStoreOpen && <div className="store-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setWidgetStoreOpen(false); }}>
+        <section className="widget-store-dialog" role="dialog" aria-modal="true" aria-labelledby="widget-store-title">
+          <header><div><p className="eyebrow">{t("store.eyebrow")}</p><h2 id="widget-store-title">{t("store.title")}</h2><span>{t("store.subtitle")}</span></div><button className="store-close" onClick={() => setWidgetStoreOpen(false)} aria-label={t("store.close")}>×</button></header>
+          <div className="store-safety-note"><b>{t("store.safeTitle")}</b><span>{t("store.safeBody")}</span></div>
+          <div className="store-grid">
+            {widgetPackages.map((widgetPackage) => <article className={`store-card ${widgetPackage.source === "core" ? "is-core" : ""}`} key={widgetPackage.kind}>
+              <div className="store-card-heading"><span className={`widget-kind-icon kind-${widgetPackage.kind}`}>{widgetIcon(widgetPackage.kind)}</span><div><h3>{widgetKindLabel(widgetPackage.kind, t)}</h3><span>{t(widgetPackage.source === "core" ? "store.core" : "store.bundled")}</span></div></div>
+              <p>{t(`store.description.${widgetPackage.kind}` as TranslationKey)}</p>
+              <dl><div><dt>{t("store.version")}</dt><dd>{widgetPackage.version}</dd></div><div><dt>{t("store.minimumArea")}</dt><dd>{Math.round(widgetPackage.minimumWidth * 100)}% × {Math.round(widgetPackage.minimumHeight * 100)}%</dd></div><div><dt>{t("store.permissions")}</dt><dd>{widgetPackage.permissions.length === 0 ? t("store.noPermissions") : widgetPackage.permissions.join(", ")}</dd></div></dl>
+              {widgetPackage.source === "core"
+                ? <span className="store-core-badge">✓ {t("store.alwaysInstalled")}</span>
+                : <button className={widgetPackage.installed ? "store-uninstall" : "store-install"} onClick={() => void setWidgetInstalled(widgetPackage.kind, !widgetPackage.installed)}>{widgetPackage.installed ? t("store.uninstall") : t("store.install")}</button>}
+              {widgetPackage.source !== "core" && widgetPackage.installed && <small className="store-data-note">{t("store.uninstallKeepsData")}</small>}
+            </article>)}
+          </div>
+        </section>
+      </div>}
       {onboardingOpen && <OnboardingWizard
         settings={settings}
         monitors={monitors}

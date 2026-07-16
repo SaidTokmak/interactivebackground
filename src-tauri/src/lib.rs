@@ -118,6 +118,8 @@ pub fn run() {
             commands::update_widget_layout,
             commands::reset_widget_layout,
             commands::list_desktop_widgets,
+            commands::list_widget_packages,
+            commands::set_widget_package_installed,
             commands::add_desktop_widget,
             commands::update_desktop_widget,
             commands::duplicate_desktop_widget,

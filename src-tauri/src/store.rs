@@ -13,7 +13,7 @@ use crate::{
         AppSettings, BackgroundFit, BackgroundPreset, BackgroundSettings, BackgroundSource,
         DesktopWidget, LanguagePreference, OnboardingPreferences, OnboardingStatus, PomodoroAction,
         PomodoroCompletion, PomodoroMode, PomodoroPreferences, PomodoroState, StarterLayout,
-        ThemePreference, WallpaperTemplate, WidgetKind, WidgetLayout,
+        ThemePreference, WallpaperTemplate, WidgetKind, WidgetLayout, WidgetPackage,
     },
 };
 
@@ -139,6 +139,17 @@ impl AppStore {
                      (id, notifications_enabled, sound_enabled, sound_volume)
                  VALUES (1, 1, 1, 70);
 
+                 CREATE TABLE IF NOT EXISTS widget_packages (
+                     kind TEXT PRIMARY KEY CHECK (kind IN ('date', 'daily_poem', 'daily_verse', 'daily_hadith')),
+                     installed INTEGER NOT NULL DEFAULT 0 CHECK (installed IN (0, 1))
+                 );
+
+                 INSERT OR IGNORE INTO widget_packages (kind, installed) VALUES
+                     ('date', 0),
+                     ('daily_poem', 0),
+                     ('daily_verse', 0),
+                     ('daily_hadith', 0);
+
                  CREATE TABLE IF NOT EXISTS app_meta (
                      key TEXT PRIMARY KEY,
                      value TEXT NOT NULL
@@ -178,6 +189,33 @@ impl AppStore {
             connection
                 .execute(
                     "INSERT INTO app_meta (key, value) VALUES ('onboarding_migration_v1', 'done')",
+                    [],
+                )
+                .map_err(database_error)?;
+        }
+
+        let widget_store_migrated = connection
+            .query_row(
+                "SELECT value FROM app_meta WHERE key = 'widget_store_migration_v1'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .map_err(database_error)?
+            .is_some();
+        if !widget_store_migrated {
+            if existing_installation {
+                connection
+                    .execute(
+                        "UPDATE widget_packages SET installed = 1
+                         WHERE kind IN (SELECT DISTINCT kind FROM desktop_widgets)",
+                        [],
+                    )
+                    .map_err(database_error)?;
+            }
+            connection
+                .execute(
+                    "INSERT INTO app_meta (key, value) VALUES ('widget_store_migration_v1', 'done')",
                     [],
                 )
                 .map_err(database_error)?;
@@ -376,9 +414,9 @@ impl AppStore {
 
         let monitor_key = background_monitor_key(preferences.monitor_id.as_deref()).to_string();
         let widget_kinds: &[WidgetKind] = match preferences.starter_layout {
-            StarterLayout::Focus => &[WidgetKind::Focus, WidgetKind::Clock, WidgetKind::Date],
+            StarterLayout::Focus => &[WidgetKind::Focus, WidgetKind::Clock],
             StarterLayout::Planning => {
-                &[WidgetKind::Kanban, WidgetKind::Pomodoro, WidgetKind::Date]
+                &[WidgetKind::Kanban, WidgetKind::Pomodoro, WidgetKind::Clock]
             }
             StarterLayout::Blank => &[],
         };
@@ -589,12 +627,72 @@ impl AppStore {
         rows.map(|row| row.map_err(database_error)).collect()
     }
 
+    pub fn list_widget_packages(&self) -> Result<Vec<WidgetPackage>, String> {
+        let connection = self.lock_connection()?;
+        let mut packages = [
+            WidgetKind::Focus,
+            WidgetKind::Kanban,
+            WidgetKind::Pomodoro,
+            WidgetKind::Clock,
+        ]
+        .into_iter()
+        .map(|kind| WidgetPackage::bundled(kind, true))
+        .collect::<Vec<_>>();
+        for kind in WidgetKind::bundled_packages() {
+            let installed = connection
+                .query_row(
+                    "SELECT installed FROM widget_packages WHERE kind = ?1",
+                    [kind.as_database_value()],
+                    |row| row.get(0),
+                )
+                .map_err(database_error)?;
+            packages.push(WidgetPackage::bundled(kind, installed));
+        }
+        Ok(packages)
+    }
+
+    pub fn set_widget_package_installed(
+        &self,
+        kind: WidgetKind,
+        installed: bool,
+    ) -> Result<WidgetPackage, String> {
+        if kind.is_core() {
+            if !installed {
+                return Err("Çekirdek widget paketleri kaldırılamaz.".into());
+            }
+            return Ok(WidgetPackage::bundled(kind, true));
+        }
+        let connection = self.lock_connection()?;
+        let changed = connection
+            .execute(
+                "UPDATE widget_packages SET installed = ?1 WHERE kind = ?2",
+                params![installed, kind.as_database_value()],
+            )
+            .map_err(database_error)?;
+        if changed == 0 {
+            return Err("Widget paketi bulunamadı.".into());
+        }
+        Ok(WidgetPackage::bundled(kind, installed))
+    }
+
     pub fn add_desktop_widget(
         &self,
         monitor_id: Option<String>,
         kind: WidgetKind,
     ) -> Result<DesktopWidget, String> {
         let connection = self.lock_connection()?;
+        if !kind.is_core() {
+            let installed: bool = connection
+                .query_row(
+                    "SELECT installed FROM widget_packages WHERE kind = ?1",
+                    [kind.as_database_value()],
+                    |row| row.get(0),
+                )
+                .map_err(database_error)?;
+            if !installed {
+                return Err("Bu widget önce Widget Store'dan kurulmalıdır.".into());
+            }
+        }
         let monitor_key = background_monitor_key(monitor_id.as_deref()).to_string();
         let count: i64 = connection
             .query_row(
@@ -677,6 +775,18 @@ impl AppStore {
     pub fn duplicate_desktop_widget(&self, id: i64) -> Result<DesktopWidget, String> {
         let connection = self.lock_connection()?;
         let original = find_desktop_widget(&connection, id)?;
+        if !original.kind.is_core() {
+            let installed: bool = connection
+                .query_row(
+                    "SELECT installed FROM widget_packages WHERE kind = ?1",
+                    [original.kind.as_database_value()],
+                    |row| row.get(0),
+                )
+                .map_err(database_error)?;
+            if !installed {
+                return Err("Bu widget önce Widget Store'dan kurulmalıdır.".into());
+            }
+        }
         let monitor_key = background_monitor_key(original.monitor_id.as_deref()).to_string();
         let count: i64 = connection
             .query_row(
@@ -1727,7 +1837,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             widgets.iter().map(|widget| widget.kind).collect::<Vec<_>>(),
-            vec![WidgetKind::Kanban, WidgetKind::Pomodoro, WidgetKind::Date]
+            vec![WidgetKind::Kanban, WidgetKind::Pomodoro, WidgetKind::Clock]
         );
         assert_eq!(
             store
@@ -2151,6 +2261,14 @@ mod tests {
         assert_eq!(state.break_minutes, 10);
         assert_eq!(state.remaining_seconds, 321);
 
+        for kind in [
+            WidgetKind::DailyPoem,
+            WidgetKind::DailyVerse,
+            WidgetKind::DailyHadith,
+        ] {
+            store.set_widget_package_installed(kind, true).unwrap();
+        }
+
         let poem = store
             .add_desktop_widget(None, WidgetKind::DailyPoem)
             .unwrap();
@@ -2171,6 +2289,93 @@ mod tests {
             })
             .unwrap();
         assert_eq!(violations, 0);
+    }
+
+    #[test]
+    fn installs_store_packages_without_deleting_existing_widgets_on_uninstall() {
+        let store = AppStore::in_memory().unwrap();
+        let packages = store.list_widget_packages().unwrap();
+        assert_eq!(packages.len(), 8);
+        assert!(
+            packages
+                .iter()
+                .filter(|item| item.kind.is_core())
+                .all(|item| item.installed)
+        );
+        assert!(
+            packages
+                .iter()
+                .filter(|item| !item.kind.is_core())
+                .all(|item| !item.installed)
+        );
+        assert!(
+            store
+                .add_desktop_widget(None, WidgetKind::DailyPoem)
+                .is_err()
+        );
+        store
+            .set_widget_package_installed(WidgetKind::DailyPoem, true)
+            .unwrap();
+        let widget = store
+            .add_desktop_widget(None, WidgetKind::DailyPoem)
+            .unwrap();
+        store
+            .set_widget_package_installed(WidgetKind::DailyPoem, false)
+            .unwrap();
+
+        assert!(
+            store
+                .list_desktop_widgets(None)
+                .unwrap()
+                .iter()
+                .any(|item| item.id == widget.id)
+        );
+        assert!(
+            store
+                .add_desktop_widget(None, WidgetKind::DailyPoem)
+                .is_err()
+        );
+        assert!(store.duplicate_desktop_widget(widget.id).is_err());
+        assert!(
+            store
+                .set_widget_package_installed(WidgetKind::Clock, false)
+                .is_err()
+        );
+    }
+
+    #[test]
+    fn treats_optional_widgets_from_existing_installations_as_installed() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE app_settings (
+                    id INTEGER PRIMARY KEY CHECK (id = 1), template TEXT NOT NULL,
+                    opacity INTEGER NOT NULL, edit_mode INTEGER NOT NULL
+                 );
+                 INSERT INTO app_settings VALUES (1, 'focus', 82, 0);
+                 CREATE TABLE desktop_widgets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    monitor_key TEXT NOT NULL,
+                    kind TEXT NOT NULL CHECK (kind IN ('focus', 'kanban', 'pomodoro', 'clock', 'date', 'daily_poem', 'daily_verse', 'daily_hadith')),
+                    x REAL NOT NULL, y REAL NOT NULL, width REAL NOT NULL, height REAL NOT NULL,
+                    locked INTEGER NOT NULL DEFAULT 0, snap_to_grid INTEGER NOT NULL DEFAULT 1,
+                    visible INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0
+                 );
+                 INSERT INTO desktop_widgets
+                    (monitor_key, kind, x, y, width, height, locked, snap_to_grid, visible, sort_order)
+                 VALUES ('__primary__', 'daily_poem', .28, .08, .25, .28, 0, 1, 1, 0);",
+            )
+            .unwrap();
+
+        let store = AppStore::from_connection(connection).unwrap();
+        let poem = store
+            .list_widget_packages()
+            .unwrap()
+            .into_iter()
+            .find(|item| item.kind == WidgetKind::DailyPoem)
+            .unwrap();
+        assert!(poem.installed);
+        assert_eq!(store.list_desktop_widgets(None).unwrap().len(), 1);
     }
 
     #[test]

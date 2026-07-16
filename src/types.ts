@@ -36,6 +36,17 @@ export type WidgetLayout = {
 };
 
 export type WidgetKind = "focus" | "kanban" | "pomodoro" | "clock" | "date" | "dailyPoem" | "dailyVerse" | "dailyHadith";
+export type WidgetPackageSource = "core" | "bundledStore";
+
+export type WidgetPackage = {
+  kind: WidgetKind;
+  source: WidgetPackageSource;
+  version: string;
+  installed: boolean;
+  minimumWidth: number;
+  minimumHeight: number;
+  permissions: string[];
+};
 
 export type DesktopWidget = {
   id: number;

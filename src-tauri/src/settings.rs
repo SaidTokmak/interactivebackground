@@ -85,6 +85,25 @@ pub enum WidgetKind {
     DailyHadith,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum WidgetPackageSource {
+    Core,
+    BundledStore,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WidgetPackage {
+    pub kind: WidgetKind,
+    pub source: WidgetPackageSource,
+    pub version: String,
+    pub installed: bool,
+    pub minimum_width: f64,
+    pub minimum_height: f64,
+    pub permissions: Vec<String>,
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum StarterLayout {
@@ -278,6 +297,22 @@ impl WidgetLayout {
 }
 
 impl WidgetKind {
+    pub fn is_core(self) -> bool {
+        matches!(
+            self,
+            Self::Focus | Self::Kanban | Self::Pomodoro | Self::Clock
+        )
+    }
+
+    pub fn bundled_packages() -> [Self; 4] {
+        [
+            Self::Date,
+            Self::DailyPoem,
+            Self::DailyVerse,
+            Self::DailyHadith,
+        ]
+    }
+
     pub fn as_database_value(self) -> &'static str {
         match self {
             Self::Focus => "focus",
@@ -339,6 +374,25 @@ impl WidgetKind {
             Self::DailyPoem => (215.0, 180.0),
             Self::DailyVerse => (230.0, 190.0),
             Self::DailyHadith => (230.0, 180.0),
+        }
+    }
+}
+
+impl WidgetPackage {
+    pub fn bundled(kind: WidgetKind, installed: bool) -> Self {
+        let ((minimum_width, minimum_height), _) = kind.size_limits();
+        Self {
+            kind,
+            source: if kind.is_core() {
+                WidgetPackageSource::Core
+            } else {
+                WidgetPackageSource::BundledStore
+            },
+            version: "1.0.0".into(),
+            installed: kind.is_core() || installed,
+            minimum_width,
+            minimum_height,
+            permissions: Vec::new(),
         }
     }
 }

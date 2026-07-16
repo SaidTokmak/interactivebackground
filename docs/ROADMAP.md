@@ -319,6 +319,18 @@ regresyonuyla doğrulandı.
 Kabul ölçütü: Yeni kullanıcı yalnızca sade çekirdek kataloğu görür; isteğe bağlı
 widget yükleme/kaldırma veri kaybı veya uygulama yeniden başlatması gerektirmez.
 
+**Tamamlandı.** Yeni kurulum kataloğu Odak Görevleri, Kanban, Pomodoro ve Saat
+olmak üzere dört çekirdek widget ile sınırlandı. Tarih, Günün Şiiri, Günün Ayeti
+ve Günün Hadisi; uygulamayla birlikte gelen, sürüm/minimum alan/izin bilgisini
+taşıyan manifest tabanlı Widget Store paketlerine dönüştürüldü. Store üçüncü
+taraf kodu indirmiyor veya çalıştırmıyor. Paket durumu SQLite'ta kalıcı; kurma ve
+kaldırma yeniden başlatma istemeden kataloğa yansıyor. Kaldırılan paketin mevcut
+masaüstü örnekleri ve verileri korunuyor, ancak yeni örnek ekleme veya çoğaltma
+paket yeniden kurulana kadar engelleniyor. Eski kurulumlarda kullanılan isteğe
+bağlı widget'lar migration sırasında otomatik olarak kurulu kabul ediliyor.
+Migration ve veri koruma 28 Rust testiyle; Store kartları, kur–kaldır–ekle akışı
+ve yatay taşma etkileşimli tarayıcı regresyonuyla doğrulandı.
+
 ### 9.7 — Saat widget'ı v2
 
 - Dijital ve analog görünüm seçeneği.
@@ -375,6 +387,6 @@ korunur ve beta checklist'in bütün kritik maddeleri geçer.
 
 ## Önerilen bir sonraki çalışma
 
-Faz 9.6 ile devam edilmeli; yeni kullanıcı kataloğu dört çekirdek widget ile
-sadeleştirilirken mevcut isteğe bağlı widget'lar veri kaybı olmadan güvenli,
-manifest tabanlı Widget Store modeline taşınmalıdır.
+Faz 9.7 ile devam edilmeli; Saat widget'ına bağımsız ve sürümlenebilir ayar
+modeli üzerinde analog/dijital görünüm, 12/24 saat biçimi, saat dilimi, saniye ve
+tarih seçenekleri eklenmelidir.

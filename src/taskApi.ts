@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AppSettings, BackgroundSettings, DesktopHostStatus, DesktopWidget, MonitorInfo, OnboardingPreferences, OnboardingStatus, PomodoroAction, PomodoroPreferences, PomodoroState, Task, TaskStatus, WallpaperTemplate, WidgetKind, WidgetLayout } from "./types";
+import type { AppSettings, BackgroundSettings, DesktopHostStatus, DesktopWidget, MonitorInfo, OnboardingPreferences, OnboardingStatus, PomodoroAction, PomodoroPreferences, PomodoroState, Task, TaskStatus, WallpaperTemplate, WidgetKind, WidgetLayout, WidgetPackage } from "./types";
 
 let browserTasks: Task[] = [
   { id: 1, title: "Rust ownership notlarını bitir", status: "done", scheduledFor: "09:30" },
@@ -128,9 +128,9 @@ export async function completeOnboarding(preferences: OnboardingPreferences): Pr
   });
   browserWidgets = browserWidgets.filter((widget) => widget.monitorId !== preferences.monitorId);
   const kinds: WidgetKind[] = preferences.starterLayout === "focus"
-    ? ["focus", "clock", "date"]
+    ? ["focus", "clock"]
     : preferences.starterLayout === "planning"
-      ? ["kanban", "pomodoro", "date"]
+      ? ["kanban", "pomodoro", "clock"]
       : [];
   kinds.forEach((kind, sortOrder) => {
     const id = Math.max(0, ...browserWidgets.map((widget) => widget.id)) + 1;
@@ -182,8 +182,23 @@ export async function listDesktopWidgets(monitorId: string | null): Promise<Desk
   return browserWidgets.filter((widget) => widget.monitorId === monitorId).sort((a, b) => a.sortOrder - b.sortOrder).map((widget) => ({ ...widget }));
 }
 
+export async function listWidgetPackages(): Promise<WidgetPackage[]> {
+  if (isTauriRuntime()) return invoke<WidgetPackage[]>("list_widget_packages");
+  return browserWidgetPackages.map((item) => ({ ...item, permissions: [...item.permissions] }));
+}
+
+export async function setWidgetPackageInstalled(kind: WidgetKind, installed: boolean): Promise<WidgetPackage> {
+  if (isTauriRuntime()) return invoke<WidgetPackage>("set_widget_package_installed", { kind, installed });
+  const packageIndex = browserWidgetPackages.findIndex((item) => item.kind === kind);
+  if (packageIndex < 0) throw new Error("Widget paketi bulunamadı.");
+  if (browserWidgetPackages[packageIndex].source === "core" && !installed) throw new Error("Çekirdek widget paketleri kaldırılamaz.");
+  browserWidgetPackages[packageIndex] = { ...browserWidgetPackages[packageIndex], installed };
+  return { ...browserWidgetPackages[packageIndex], permissions: [...browserWidgetPackages[packageIndex].permissions] };
+}
+
 export async function addDesktopWidget(monitorId: string | null, kind: WidgetKind): Promise<DesktopWidget> {
   if (isTauriRuntime()) return invoke<DesktopWidget>("add_desktop_widget", { monitorId, kind });
+  if (!browserWidgetPackages.some((item) => item.kind === kind && item.installed)) throw new Error("Bu widget önce Widget Store'dan kurulmalıdır.");
   if (browserWidgets.filter((widget) => widget.monitorId === monitorId).length >= 12) throw new Error("Bir monitörde en fazla 12 widget kullanılabilir.");
   const id = Math.max(0, ...browserWidgets.map((widget) => widget.id)) + 1;
   const sortOrder = browserWidgets.filter((widget) => widget.monitorId === monitorId).length;
@@ -294,6 +309,24 @@ let browserPomodoroPreferences: PomodoroPreferences = {
   soundEnabled: true,
   soundVolume: 70,
 };
+const browserWidgetPackages: WidgetPackage[] = [
+  ["focus", "core", true, .10, .14],
+  ["kanban", "core", true, .10, .14],
+  ["pomodoro", "core", true, .08, .12],
+  ["clock", "core", true, .06, .08],
+  ["date", "bundledStore", false, .07, .08],
+  ["dailyPoem", "bundledStore", false, .10, .12],
+  ["dailyVerse", "bundledStore", false, .11, .13],
+  ["dailyHadith", "bundledStore", false, .11, .12],
+].map(([kind, source, installed, minimumWidth, minimumHeight]) => ({
+  kind: kind as WidgetKind,
+  source: source as WidgetPackage["source"],
+  version: "1.0.0",
+  installed: installed as boolean,
+  minimumWidth: minimumWidth as number,
+  minimumHeight: minimumHeight as number,
+  permissions: [],
+}));
 
 function defaultBackground(monitorId: string | null): BackgroundSettings {
   return {

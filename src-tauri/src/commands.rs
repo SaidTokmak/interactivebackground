@@ -15,7 +15,7 @@ use crate::{
     settings::{
         AppSettings, BackgroundSettings, BackgroundSource, DesktopWidget, OnboardingPreferences,
         OnboardingStatus, PomodoroAction, PomodoroPreferences, PomodoroState, WallpaperTemplate,
-        WidgetKind, WidgetLayout,
+        WidgetKind, WidgetLayout, WidgetPackage,
     },
     store::AppStore,
 };
@@ -251,6 +251,25 @@ pub fn list_desktop_widgets(
     store: State<'_, AppStore>,
 ) -> Result<Vec<DesktopWidget>, String> {
     store.list_desktop_widgets(monitor_id)
+}
+
+#[tauri::command]
+pub fn list_widget_packages(store: State<'_, AppStore>) -> Result<Vec<WidgetPackage>, String> {
+    store.list_widget_packages()
+}
+
+#[tauri::command]
+pub fn set_widget_package_installed(
+    kind: WidgetKind,
+    installed: bool,
+    store: State<'_, AppStore>,
+    app: AppHandle,
+) -> Result<WidgetPackage, String> {
+    let package = store.set_widget_package_installed(kind, installed)?;
+    if let Err(error) = app.emit("widget-packages-changed", &package) {
+        eprintln!("widget-packages-changed olayı yayınlanamadı: {error}");
+    }
+    Ok(package)
 }
 
 #[tauri::command]
