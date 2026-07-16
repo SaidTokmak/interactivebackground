@@ -254,6 +254,22 @@ ve tek ses üretir; duraklatılan/sıfırlanan sayaç eski bildirimi tetiklemez.
   modeli tasarlanmadan desteklenmeyecek.
 - Store kartlarında açıklama, kaynak, gerekli minimum alan, veri/ağ izinleri ve
   kaldırma işleminin etkisi açıkça gösterilecek.
+- İsteğe bağlı gelecek widget backlog'u:
+  - **LeetCode Daily:** Günlük sorunun başlığı, zorluk seviyesi, konu etiketleri
+    ve soru bağlantısı. İlk sürümde `yapılmadı / çalışılıyor / yapıldı` durumu
+    cihazda yerel tutulacak; hesap ilerlemesini otomatik eşitleme ancak kararlı
+    ve izin verilen bir entegrasyon yolu doğrulanırsa eklenecek.
+  - **GitHub:** Kullanıcının açıkça seçtiği dar kapsamla contribution özeti,
+    atanmış issue/PR veya repository durumundan biri. Kişisel erişim anahtarı
+    düz metin SQLite'a yazılmayacak; bağlantı kurulursa OAuth/device flow ve
+    işletim sistemi güvenli credential deposu kullanılacak. İlk tasarımda hangi
+    bilginin gerçekten günlük değer ürettiği kullanıcıyla seçilecek.
+  - **English Flashcards:** Günlük küçük kart destesi, kelime–anlam–örnek cümle,
+    çevir/aç/kapat ve kısa oyun akışı. Kart başarısı yerel tutulacak, aralıklı
+    tekrar algoritmasıyla `yeni / öğreniliyor / öğrenildi` durumlarına ayrılacak;
+    temel paket çevrimdışı çalışacak.
+- Ağ kullanan Store widget'ları cache, açık yenileme zamanı, hata fallback'i ve
+  minimum izin ilkelerine uyacak; internet yokluğu masaüstü yüzeyini bozmayacak.
 
 Kabul ölçütü: Yeni kullanıcı yalnızca sade çekirdek kataloğu görür; isteğe bağlı
 widget yükleme/kaldırma veri kaybı veya uygulama yeniden başlatması gerektirmez.
