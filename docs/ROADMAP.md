@@ -132,11 +132,20 @@ Durum: Tamamlandı — 16 Temmuz 2026
 
 ## Faz 8 — Yayın ve güncelleme
 
+Durum: Altyapı tamamlandı — 16 Temmuz 2026. İlk production yayını için updater
+anahtarlarının ve isteğe bağlı Windows yayıncı sertifikasının repository
+ayarlarına eklenmesi bekleniyor.
+
 - Tauri updater entegrasyonu ve imzalı güncelleme manifesti.
 - Windows kod imzalama sertifikası.
 - GitHub Actions ile test, paketleme, checksum ve GitHub Release otomasyonu.
 - Legacy `com.flowdesk.app` identifier ve `flowdesk.db` için kontrollü veri
   taşıma planı.
+
+Kabul ölçütü: Yeni kimlikle ilk açılış mevcut görev, widget, ayar ve yönetilen
+arka planları kayıpsız taşır; eski kopyayı korur. Elle tetiklenen release akışı
+testleri çalıştırır, imzalı updater artifact'ı, `latest.json`, NSIS/MSI paketleri
+ve SHA-256 checksum dosyası üretir.
 
 ## Ürün kararları ve sınırlar
 
@@ -153,5 +162,7 @@ Durum: Tamamlandı — 16 Temmuz 2026
 
 ## Önerilen bir sonraki çalışma
 
-Faz 8'e geçilmelidir: uygulama kimliği/veri taşıma planı kesinleştirilmeli,
-imzalı güncelleme ve GitHub Actions yayın hattı hazırlanmalıdır.
+İlk yayın anahtarları güvenli biçimde oluşturulup GitHub repository ayarlarına
+eklenmeli, ardından `Windows release` akışı `v0.1.0` için çalıştırılmalıdır.
+Production sertifikası alınana kadar paketlerin Windows'ta bilinmeyen yayıncı
+uyarısı göstereceği kabul edilmelidir.

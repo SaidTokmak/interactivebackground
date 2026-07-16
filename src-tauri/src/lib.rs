@@ -1,4 +1,5 @@
 mod commands;
+mod data_migration;
 mod desktop_host;
 mod desktop_integration;
 mod model;
@@ -36,7 +37,21 @@ pub fn run() {
                 .build(),
         )
         .setup(|app| {
+            #[cfg(desktop)]
+            if option_env!("VITE_UPDATER_ENABLED") == Some("true") {
+                app.handle()
+                    .plugin(tauri_plugin_updater::Builder::new().build())?;
+            }
             let app_data_directory = app.path().app_data_dir()?;
+            match data_migration::migrate_legacy_app_data(&app_data_directory)
+                .map_err(std::io::Error::other)?
+            {
+                data_migration::MigrationOutcome::Migrated => {
+                    println!("Legacy com.flowdesk.app verisi yeni uygulama kimliğine taşındı.");
+                }
+                data_migration::MigrationOutcome::LegacyDataNotFound
+                | data_migration::MigrationOutcome::CurrentDataAlreadyExists => {}
+            }
             std::fs::create_dir_all(&app_data_directory)?;
             let database_path = app_data_directory.join("flowdesk.db");
             let store = AppStore::open(database_path).map_err(std::io::Error::other)?;

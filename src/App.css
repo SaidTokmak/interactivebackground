@@ -79,6 +79,11 @@ button { color: inherit; }
 .icon-button { width: 36px; height: 36px; border: 1px solid var(--line); background: var(--field-bg); border-radius: 10px; cursor: pointer; }
 .header-button { padding: 9px 13px; border: 0; border-radius: 10px; color: white; background: var(--green); font-size: 11px; cursor: pointer; box-shadow: 0 7px 16px rgba(15,24,45,.2); }
 .header-button:hover, .primary-button:hover, .focus-action button:hover, .wallpaper-close:hover { background: var(--accent-hover); }
+.update-button { padding: 8px 11px; border: 1px solid var(--line); border-radius: 10px; color: var(--muted); background: var(--panel); font-size: 10px; cursor: pointer; }
+.update-button:hover { color: var(--ink); border-color: var(--accent); }
+.update-button:disabled { cursor: wait; opacity: .72; }
+.update-button.is-available { color: white; border-color: var(--accent); background: var(--accent); }
+.update-button.has-error { color: #be4e55; border-color: rgba(190,78,85,.35); }
 
 .workspace { height: calc(100vh - 72px); display: grid; grid-template-columns: minmax(340px, 400px) 1fr; }
 .control-panel { padding: 34px 28px; background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; }

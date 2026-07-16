@@ -14,6 +14,7 @@ import { useDesktopWidgets } from "./useDesktopWidgets";
 import { WallpaperSurface } from "./WallpaperSurface";
 import appIcon from "./assets/interactivebackground-icon.png";
 import { OnboardingWizard } from "./OnboardingWizard";
+import { UpdateControl } from "./UpdateControl";
 
 export function ControlWindow() {
   const { tasks, error: taskError, addTask, toggleTask, moveTask, removeTask } = useTasks();
@@ -162,6 +163,7 @@ export function ControlWindow() {
         </div>
         <div className="header-actions">
           <span className="status-dot"><i /> {t("status.sqliteConnected")}</span>
+          <UpdateControl t={t} />
           <button className="header-button" onClick={() => void toggleWallpaper()}>
             {desktopStatus && desktopStatus.mode !== "window" ? t("header.closeDesktop") : t("header.openDesktop")}
           </button>

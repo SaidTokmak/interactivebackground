@@ -524,3 +524,45 @@ görev, yedi widget (iki günlük ayet dahil), bir Pomodoro durumu, Türkçe dil
 koyu tema, yüzde 58 saydamlık ve hedef monitör seçimi değişmeden kaldı. Yalnızca
 iki onboarding migration işareti eklendi ve `foreign_key_check` ihlal vermedi.
 NSIS ile Türkçe ve İngilizce MSI paketleri aynı release binary'den üretildi.
+
+## FEATURE-012 — Uygulama kimliği geçişi ve imzalı yayın altyapısı
+
+- Tarih: 16 Temmuz 2026
+- Durum: Veri geçişi gerçek kullanıcı verisiyle, yayın altyapısı yerel paketlemeyle doğrulandı
+- Final rapora dahil et: Evet
+
+Tauri identifier `com.flowdesk.app` değerinden kalıcı
+`com.saidtokmak.interactivebackground` kimliğine taşındı. Yeni kimlikle ilk
+açılışta hedef veritabanı yoksa eski SQLite dosyası `VACUUM INTO` ile tutarlı
+bir snapshot olarak kopyalanır. Bu yöntem WAL içindeki tamamlanmış işlemleri de
+kapsar; çalışan veritabanının ana dosyasını ve yan dosyalarını ayrı ayrı kopyalama
+riskini önler. Yönetilen `backgrounds` klasörü kopyalanır ve yalnızca eski app
+data dizininin altındaki mutlak `custom_path` değerleri yeni dizine çevrilir.
+
+Geçiş tekrar çalıştırılabilir ve geri alınabilirdir: yeni veritabanı varsa asla
+ezilmez, eski dizin asla silinmez ve başarı işareti yeni dizine yazılır. Üç Rust
+testi tam veri/yol geçişini, mevcut hedef verinin korunmasını ve legacy verisi
+olmayan temiz kurulumu kapsar. Gerçek kullanıcı verisinde eski ve yeni
+veritabanlarının her ikisinde de beş görev, yedi widget, bir Pomodoro ve iki
+monitör arka planı bulundu. Kanban, yüzde 58 saydamlık, DISPLAY1, koyu tema ve
+Türkçe ayarları aynen korundu; yeni veritabanında eski klasörü gösteren arka plan
+yolu kalmadı.
+
+Updater eklentisi ilk denemede her yerel build'de başlatıldı. Release'e özel
+`plugins.updater` yapılandırması bulunmadığında Tauri önce `null`, boş nesne
+eklendiğinde ise eksik `pubkey` hatasıyla setup aşamasında uygulamayı kapattı.
+Kök neden updater public key'inin güvenlik gereği zorunlu olması, buna karşılık
+yerel geliştirmenin production anahtarına sahip olmamasıydı. Eklenti başlatma
+işlemi compile-time `VITE_UPDATER_ENABLED=true` koşuluna bağlandı; aynı değişken
+release workflow'unda hem Rust hem Vite derlemesine veriliyor. Böylece yerel
+build anahtarsız ve updater yüzeyi gizli çalışırken yayın build'i secret tabanlı
+config ile eklentiyi ve kullanıcı kontrollü güncelleme düğmesini birlikte açar.
+
+GitHub Actions Windows CI her push ve pull request'te frontend üretim derlemesi
+ile kilitli 22 Rust testini çalıştırır. Elle tetiklenen release akışı updater
+secret/variable'larını doğrular, isteğe bağlı Base64 PFX sertifikasını Windows
+certificate store'a alır, release-only Tauri config üretir, resmi tauri-action
+ile NSIS/MSI ve `latest.json` yayınlar, son olarak bütün installer ve imzalar
+için `SHA256SUMS.txt` yükler. Özel anahtar, parola veya sertifika repository'ye
+yazılmaz. Windows publisher sertifikası henüz temin edilmediğinden bu kısım
+hazır fakat production credential bekleyen durumdadır.

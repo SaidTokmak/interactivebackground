@@ -42,6 +42,11 @@ interactivebackground, masaüstünü gerektiğinde sakin bir görev alanına dö
   gösteren günün şiiri, ayeti ve hadisi widget'ları
 - İlk açılışta dil, görünüm, monitör, arka plan ve başlangıç widget düzenini
   kuran; ayarlardan yeniden açılabilen dört adımlı kişiselleştirme akışı
+- Eski `com.flowdesk.app` verisini yeni uygulama kimliğine kaynak kopyayı
+  silmeden taşıyan, mutlak arka plan yollarını da güncelleyen idempotent geçiş
+- Kullanıcı kontrollü güncelleme denetimi ve imzalı GitHub Release güncellemeleri
+- Her push/PR için Windows CI; manuel tetiklenen NSIS/MSI, updater manifesti ve
+  SHA-256 checksum yayın hattı
 
 ## Geliştirme
 
@@ -89,10 +94,21 @@ yer alır.
 Günlük içeriklerin eser, çeviri ve lisans kayıtları [içerik kaynakları
 belgesinde](docs/CONTENT_SOURCES.md) tutulur.
 
-## Sıradaki adımlar
+## İmzalı yayın kurulumu
 
-1. İmzalı yayın ve otomatik güncelleme hattını hazırlamak
-2. Legacy uygulama kimliği ve veritabanı için veri taşıma planını uygulamak
+GitHub Actions'taki `Windows release` akışı yalnızca elle tetiklenir. İlk
+yayından önce Tauri updater anahtar çifti bir kez üretilmeli ve aşağıdaki
+repository ayarları eklenmelidir:
+
+- Secret `TAURI_SIGNING_PRIVATE_KEY`: updater özel anahtarının içeriği.
+- Secret `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: anahtar parolası.
+- Variable `TAURI_UPDATER_PUBKEY`: eşleşen public key içeriği.
+
+Windows SmartScreen güveni için alınmış bir OV/EV sertifikası varsa ayrıca
+`WINDOWS_CERTIFICATE` (Base64 PFX), `WINDOWS_CERTIFICATE_PASSWORD` secret'ları
+ve sertifika sağlayıcısının `WINDOWS_TIMESTAMP_URL` variable'ı eklenir. Bu üçlü
+verilmezse updater artifact'ları yine kriptografik olarak imzalanır; Windows
+publisher imzası olmadan yayınlanır.
 
 ## Pencere mimarisi
 
@@ -159,10 +175,12 @@ olmazsa ayar SQLite'ta sakin moda çevrilir ve pencere otomatik olarak WorkerW
 katmanına geri bağlanır. Bu davranış yönetim ekranından tamamen kapatılabilir.
 
 Uygulamanın görünen adı, npm paketi, Rust crate'i ve executable adı
-`interactivebackground` olarak değiştirilmiştir. Mevcut geliştirme verilerini
-kaybetmemek için Tauri identifier `com.flowdesk.app` ve mevcut `flowdesk.db`
-dosya adı geriye dönük uyumluluk amacıyla şimdilik korunur; bunlar kullanıcıya
-görünen marka adı değildir.
+`interactivebackground`, kalıcı Tauri kimliği ise
+`com.saidtokmak.interactivebackground` değeridir. Yeni kimlikle ilk açılışta
+eski `com.flowdesk.app/flowdesk.db` SQLite'ın tutarlı snapshot özelliğiyle yeni
+dizine kopyalanır. Yönetilen arka planlar kopyalanıp veritabanındaki eski mutlak
+yollar yeniden yazılır; eski dizin rollback kopyası olarak hiçbir zaman
+silinmez ve mevcut yeni veritabanı hiçbir zaman ezilmez.
 
 Windows otomatik başlangıç seçeneği Tauri autostart eklentisinin gerçek sistem
 kaydını okuyup değiştirir. Etkinleştirilen kayıt executable'ı `--hidden`
