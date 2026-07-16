@@ -210,6 +210,8 @@ değiştirilmez.
 
 ### 9.3 — Widget yoğunluğu ve düzenleme affordance'ları
 
+Durum: Tamamlandı — 16 Temmuz 2026
+
 - Kart padding, başlık yüksekliği, boş satırlar ve kontrol aralıkları azaltılacak;
   içerik yoğunluğu widget boyutuna responsive hale getirilecek.
 - Düzenleme modunda her widget'ın üstünde ayrı bir sürükleme rayı/çizgisi ve kısa
@@ -225,6 +227,15 @@ değiştirilmez.
 
 Kabul ölçütü: İlk kez kullanan biri yardım okumadan widget'ı nereden taşıyacağını,
 nasıl boyutlandıracağını ve bir kontrolün neden pasif olduğunu anlayabilir.
+
+Uygulama notu: Widget padding, başlık, görev satırı, Kanban kartı ve Pomodoro
+kontrol aralıkları sıkılaştırıldı; yeni başlangıç Focus/Kanban yükseklikleri
+azaltıldı. Container query kuralları dar ve kısa kartlarda ikincil içeriği
+sadeleştiriyor. Düzenleme modunda bağımsız bir sürükleme rayı, sekiz görünür
+resize tutamacı ve klavye taşıma açıklaması gösteriliyor. Kilitli widget rayında
+ikon ve metinle işaretleniyor, resize yüzeyleri kaldırılıyor. Etkileşim gerektiren
+kontroller sakin modda gerçek `disabled` semantiğine ve açıklayıcı alt bilgiye
+sahip; işlevsiz Focus düğmesi kaldırıldı.
 
 ### 9.4 — Yönetim paneli bilgi mimarisi ve görsel düzen
 
@@ -345,6 +356,5 @@ korunur ve beta checklist'in bütün kritik maddeleri geçer.
 
 ## Önerilen bir sonraki çalışma
 
-Faz 9.3 ile devam edilmeli; ortak yerleşim motorunun üstünde widget iç boşlukları,
-sürükleme rayı, resize tutamakları ve etkileşim açıklamaları sadeleştirilmelidir.
-Ardından Faz 9.4 yönetim paneli bilgi mimarisini yenilemelidir.
+Faz 9.4 ile devam edilmeli; görevler, masaüstü canvas'ı, widget kataloğu ve seçili
+widget ayarları responsive bir yönetim çalışma alanında yeniden gruplanmalıdır.

@@ -130,6 +130,7 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
   }
 
   function nudgeWidget(widget: DesktopWidget, event: ReactKeyboardEvent<HTMLElement>) {
+    if (event.target !== event.currentTarget) return;
     if (!editMode || widget.locked || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -149,17 +150,19 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
   }
 
   function widgetContent(widget: DesktopWidget): ReactNode {
+    const controlsDisabled = !editMode;
+    const disabledTitle = controlsDisabled ? t("widget.controlsDisabledTitle") : undefined;
     if (widget.kind === "focus") {
       return <>
         <div className="widget-tasks">
           {tasks.slice(0, 6).map((task) => (
             <label className={task.status === "done" ? "done" : ""} key={task.id}>
-              <input type="checkbox" checked={task.status === "done"} onChange={() => onToggle(task.id)} />
+              <input type="checkbox" checked={task.status === "done"} disabled={controlsDisabled} title={disabledTitle} onChange={() => onToggle(task.id)} />
               <span>{task.title}</span><time>{task.scheduledFor}</time>
             </label>
           ))}
         </div>
-        <div className="focus-action"><span>{nextTask ? t("widget.next", { title: nextTask.title }) : t("widget.allDone")}</span><button>{t("widget.focusButton")}</button></div>
+        <div className="focus-action"><span>{nextTask ? t("widget.next", { title: nextTask.title }) : t("widget.allDone")}</span></div>
       </>;
     }
     if (widget.kind === "kanban") {
@@ -168,7 +171,7 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
           <div className="kanban-column" key={column.status}>
             <span>{column.label}</span>
             {tasks.filter((task) => task.status === column.status).map((task) => (
-              <button className="kanban-card" key={task.id} onClick={() => onMove(task.id, nextStatus(column.status))}>{task.title}</button>
+              <button className="kanban-card" disabled={controlsDisabled} title={disabledTitle} key={task.id} onClick={() => onMove(task.id, nextStatus(column.status))}>{task.title}</button>
             ))}
           </div>
         ))}
@@ -184,9 +187,9 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
         <strong className="pomodoro-time">{formatDuration(remaining)}</strong>
         <div className="pomodoro-track"><span style={{ width: `${percent}%` }} /></div>
         <div className="pomodoro-actions">
-          <button onClick={() => onPomodoroAction(widget.id, state?.running ? "pause" : "start")}>{state?.running ? t("pomodoro.pause") : t("pomodoro.start")}</button>
-          <button onClick={() => onPomodoroAction(widget.id, "reset")}>{t("pomodoro.reset")}</button>
-          <button onClick={() => onPomodoroAction(widget.id, "skip")}>{t("pomodoro.skip")}</button>
+          <button disabled={controlsDisabled} title={disabledTitle} onClick={() => onPomodoroAction(widget.id, state?.running ? "pause" : "start")}>{state?.running ? t("pomodoro.pause") : t("pomodoro.start")}</button>
+          <button disabled={controlsDisabled} title={disabledTitle} onClick={() => onPomodoroAction(widget.id, "reset")}>{t("pomodoro.reset")}</button>
+          <button disabled={controlsDisabled} title={disabledTitle} onClick={() => onPomodoroAction(widget.id, "skip")}>{t("pomodoro.skip")}</button>
         </div>
       </div>;
     }
@@ -202,8 +205,8 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
         <div className="daily-source-row">
           <span><b>{content.attribution}</b>{content.reference && ` · ${content.reference}`}</span>
           <div className="daily-source-actions">
-            {content.originalSourceUrl && <button type="button" onClick={() => void openExternal(content.originalSourceUrl!)}>{t("daily.arabicSource")}</button>}
-            <button type="button" onClick={() => void openExternal(content.sourceUrl)}>{t("daily.source")}</button>
+            {content.originalSourceUrl && <button type="button" disabled={controlsDisabled} title={disabledTitle} onClick={() => void openExternal(content.originalSourceUrl!)}>{t("daily.arabicSource")}</button>}
+            <button type="button" disabled={controlsDisabled} title={disabledTitle} onClick={() => void openExternal(content.sourceUrl)}>{t("daily.source")}</button>
           </div>
         </div>
         <small className="daily-license">{content.license}</small>
@@ -235,15 +238,19 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
           backgroundColor: `color-mix(in srgb, var(--widget) ${opacity}%, transparent)`,
         } as CSSProperties;
         const taskWidget = widget.kind === "focus" || widget.kind === "kanban";
-        return <section className={`wallpaper-widget widget-${widget.kind} ${actual ? "actual-widget" : ""} ${editMode ? "editing" : ""} ${widget.locked ? "layout-locked" : ""} ${invalidWidgetId === widget.id ? "layout-invalid" : ""}`} style={style} tabIndex={editMode && !widget.locked ? 0 : undefined} onKeyDown={(event) => nudgeWidget(widget, event)} key={widget.id}>
-          <div className="widget-header widget-drag-handle" onPointerDown={(event) => beginInteraction(widget, "move", event)} onPointerMove={continueInteraction} onPointerUp={finishInteraction} onPointerCancel={finishInteraction}>
+        const interactiveWidget = widget.kind === "focus" || widget.kind === "kanban" || widget.kind === "pomodoro" || widget.kind === "dailyPoem" || widget.kind === "dailyVerse" || widget.kind === "dailyHadith";
+        return <section className={`wallpaper-widget widget-${widget.kind} ${actual ? "actual-widget" : ""} ${editMode ? "editing" : ""} ${widget.locked ? "layout-locked" : ""} ${invalidWidgetId === widget.id ? "layout-invalid" : ""}`} style={style} tabIndex={editMode && !widget.locked ? 0 : undefined} aria-label={editMode && !widget.locked ? `${widgetTitle(widget.kind, t)}. ${t("layout.keyboardHint")}` : undefined} onKeyDown={(event) => nudgeWidget(widget, event)} key={widget.id}>
+          {editMode && <div className={`widget-edit-rail ${widget.locked ? "is-locked" : ""}`} title={widget.locked ? t("layout.lockedBadge") : t("layout.keyboardHint")} onPointerDown={(event) => beginInteraction(widget, "move", event)} onPointerMove={continueInteraction} onPointerUp={finishInteraction} onPointerCancel={finishInteraction}>
+            <span aria-hidden="true"><i /></span><small>{widget.locked ? `🔒 ${t("layout.lockedBadge")}` : t("layout.dragHere")}</small>
+          </div>}
+          <div className="widget-header">
             <div><h3>{widgetTitle(widget.kind, t)}</h3>{taskWidget && <span>{formatDate(now, "long")}</span>}</div>
             {taskWidget && <div className="progress-circle" style={{ "--progress": `${progress * 3.6}deg` } as CSSProperties}><b>{completed}/{tasks.length}</b></div>}
           </div>
-          {editMode && widget.locked && <span className="widget-lock-badge">{t("layout.lockedBadge")}</span>}
           {widgetContent(widget)}
+          {interactiveWidget && <small className={`widget-interaction-hint ${editMode ? "is-active" : ""}`}>{editMode ? t("widget.controlsActive") : t("widget.controlsRequireEdit")}</small>}
           {editMode && !widget.locked && (["n", "s", "e", "w", "ne", "nw", "se", "sw"] as InteractionMode[]).map((edge) => (
-            <span className={`resize-handle resize-${edge}`} key={edge} onPointerDown={(event) => beginInteraction(widget, edge, event)} onPointerMove={continueInteraction} onPointerUp={finishInteraction} onPointerCancel={finishInteraction} />
+            <span className={`resize-handle resize-${edge}`} role="separator" aria-label={t("layout.resizeHandle")} key={edge} onPointerDown={(event) => beginInteraction(widget, edge, event)} onPointerMove={continueInteraction} onPointerUp={finishInteraction} onPointerCancel={finishInteraction} />
           ))}
         </section>;
       })}

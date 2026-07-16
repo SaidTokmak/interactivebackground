@@ -282,8 +282,8 @@ impl WidgetKind {
 
     pub fn default_frame(self) -> (f64, f64, f64, f64) {
         match self {
-            Self::Focus => (0.66, 0.16, 0.28, 0.44),
-            Self::Kanban => (0.58, 0.16, 0.36, 0.44),
+            Self::Focus => (0.66, 0.16, 0.28, 0.30),
+            Self::Kanban => (0.58, 0.16, 0.36, 0.34),
             Self::Pomodoro => (0.05, 0.12, 0.22, 0.26),
             Self::Clock => (0.05, 0.50, 0.17, 0.14),
             Self::Date => (0.28, 0.72, 0.19, 0.13),

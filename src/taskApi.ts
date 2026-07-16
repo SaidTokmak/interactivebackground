@@ -310,8 +310,8 @@ function defaultWidgetLayout(monitorId: string | null, template: WallpaperTempla
 
 function defaultDesktopWidget(monitorId: string | null, kind: WidgetKind, id: number, sortOrder: number): DesktopWidget {
   const frames: Record<WidgetKind, [number, number, number, number]> = {
-    focus: [0.66, 0.16, 0.28, 0.44],
-    kanban: [0.58, 0.16, 0.36, 0.44],
+    focus: [0.66, 0.16, 0.28, 0.30],
+    kanban: [0.58, 0.16, 0.36, 0.34],
     pomodoro: [0.05, 0.12, 0.22, 0.26],
     clock: [0.05, 0.50, 0.17, 0.14],
     date: [0.28, 0.72, 0.19, 0.13],
