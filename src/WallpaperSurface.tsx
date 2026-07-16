@@ -2,12 +2,13 @@ import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as 
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { BackgroundSettings, ClockWidgetSettings, DesktopWidget, LanguagePreference, PomodoroAction, PomodoroState, Task, TaskStatus, WidgetKind } from "./types";
-import appIcon from "./assets/interactivebackground-icon.png";
 import { useI18n } from "./i18n";
 import type { TranslationKey } from "./i18n/locales/en";
 import { getDailyContent } from "./dailyContent";
 import { isTauriRuntime } from "./taskApi";
 import { DEFAULT_GRID_SIZE, hasWidgetCollision, SURFACE_MARGIN, widgetSizeLimits, type LayoutViewport } from "./widgetLayout";
+import { backgroundPresetTone } from "./backgroundPresets";
+import { BackgroundArtwork } from "./BackgroundArtwork";
 
 type Props = {
   tasks: Task[];
@@ -71,6 +72,7 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
     backgroundImage: customImage ? `url("${customImage}")` : undefined,
     backgroundSize: background.fit === "stretch" ? "100% 100%" : background.fit,
   } as CSSProperties;
+  const backgroundTone = background.source === "preset" ? backgroundPresetTone(background.preset) : "dark";
 
   function beginInteraction(widget: DesktopWidget, mode: InteractionMode, event: ReactPointerEvent<HTMLElement>) {
     if (!editMode || widget.locked || !surfaceRef.current) return;
@@ -220,20 +222,15 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
   }
 
   return (
-    <div className={`desktop-preview ${actual ? "actual-surface" : ""}`} ref={surfaceRef} style={{
+    <div className={`desktop-preview surface-tone-${backgroundTone} ${actual ? "actual-surface" : ""}`} ref={surfaceRef} style={{
       "--layout-grid-size": `${gridSize * 100}%`,
       "--monitor-aspect": layoutViewport ? `${layoutViewport.width} / ${layoutViewport.height}` : "16 / 9",
       "--monitor-ratio": layoutViewport ? layoutViewport.width / layoutViewport.height : 16 / 9,
     } as CSSProperties}>
-      <div className={`desktop-background preset-${background.preset} ${customImage ? "custom-background" : ""}`} style={backgroundStyle} />
+      <BackgroundArtwork preset={background.preset} custom={Boolean(customImage)} style={backgroundStyle} />
       <div className="desktop-overlay" style={{ backgroundColor: `rgba(5, 8, 18, ${background.overlay / 100})` }} />
       {editMode && liveWidgets.some((widget) => widget.visible && widget.snapToGrid) && <div className="layout-grid" />}
-      <div className="desktop-topline">
-        <span className="desktop-brand"><img src={appIcon} alt="" aria-hidden="true" />interactivebackground</span>
-        <span className="desktop-mode">⌁ {editMode ? t("wallpaper.mode.edit") : t("wallpaper.mode.calm")}</span>
-      </div>
-      <div className="desktop-icon"><span>▱</span>{t("desktop.projects")}</div>
-      <div className="desktop-icon second"><span>♲</span>{t("desktop.trash")}</div>
+      {editMode && <div className="desktop-topline"><span className="desktop-mode">⌁ {t("wallpaper.mode.edit")}</span></div>}
 
       {liveWidgets.filter((widget) => widget.visible).map((widget) => {
         const style = {

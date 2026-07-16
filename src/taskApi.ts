@@ -80,13 +80,16 @@ export async function getDesktopHostStatus(): Promise<DesktopHostStatus> {
 
 export async function listMonitors(): Promise<MonitorInfo[]> {
   if (isTauriRuntime()) return invoke<MonitorInfo[]>("list_monitors");
+  const previewSize = new URLSearchParams(window.location.search).get("previewMonitor")?.match(/^(\d{3,5})x(\d{3,5})$/);
+  const previewWidth = previewSize ? Number(previewSize[1]) : window.screen.width;
+  const previewHeight = previewSize ? Number(previewSize[2]) : window.screen.height;
   return [{
-    id: `browser:0:0:${window.screen.width}x${window.screen.height}`,
+    id: `browser:0:0:${previewWidth}x${previewHeight}`,
     name: "Tarayıcı ekranı",
     x: 0,
     y: 0,
-    width: window.screen.width,
-    height: window.screen.height,
+    width: previewWidth,
+    height: previewHeight,
     scaleFactor: window.devicePixelRatio,
     isPrimary: true,
   }];

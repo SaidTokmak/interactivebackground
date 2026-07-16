@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import appIcon from "./assets/interactivebackground-icon.png";
 import { useI18n } from "./i18n";
 import type { AppSettings, BackgroundPreset, LanguagePreference, MonitorInfo, OnboardingPreferences, StarterLayout, ThemePreference } from "./types";
+import type { TranslationKey } from "./i18n/locales/en";
+import { BACKGROUND_PRESETS } from "./backgroundPresets";
+import { BackgroundArtwork } from "./BackgroundArtwork";
 
 type Props = {
   settings: AppSettings;
@@ -77,7 +80,7 @@ export function OnboardingWizard({ settings, monitors, autoStartEnabled, initial
           </div>
           <h3>{t("background.title")}</h3>
           <div className="onboarding-choice-grid four">
-            {(["foldedHorizon", "midnight", "graphite", "ember"] as BackgroundPreset[]).map((preset) => <button className={backgroundPreset === preset ? "selected" : ""} onClick={() => setBackgroundPreset(preset)} key={preset}><span className={`background-swatch preset-${preset}`} /><b>{t(`background.${preset}` as "background.foldedHorizon" | "background.midnight" | "background.graphite" | "background.ember")}</b></button>)}
+            {BACKGROUND_PRESETS.map((preset) => <button className={backgroundPreset === preset ? "selected" : ""} onClick={() => setBackgroundPreset(preset)} key={preset}><BackgroundArtwork compact preset={preset} /><b>{t(`background.${preset}` as TranslationKey)}</b></button>)}
           </div>
         </div>}
 
@@ -100,7 +103,7 @@ export function OnboardingWizard({ settings, monitors, autoStartEnabled, initial
           <div className="onboarding-summary">
             <span><b>{t("language.label")}</b>{t(`language.${language}` as "language.system" | "language.tr" | "language.en")}</span>
             <span><b>{t("theme.label")}</b>{t(`theme.${theme}` as "theme.system" | "theme.light" | "theme.dark")}</span>
-            <span><b>{t("background.title")}</b>{t(`background.${backgroundPreset}` as "background.foldedHorizon" | "background.midnight" | "background.graphite" | "background.ember")}</span>
+            <span><b>{t("background.title")}</b>{t(`background.${backgroundPreset}` as TranslationKey)}</span>
             <span><b>{t("onboarding.layoutLabel")}</b>{t(`onboarding.layout.${starterLayout}` as "onboarding.layout.focus" | "onboarding.layout.planning" | "onboarding.layout.blank")}</span>
           </div>
           <div className="shortcut-card"><kbd>Ctrl</kbd><b>+</b><kbd>Alt</kbd><b>+</b><kbd>Space</kbd><span>{t("onboarding.shortcutHelp")}</span></div>

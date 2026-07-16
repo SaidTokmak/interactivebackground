@@ -81,7 +81,7 @@ impl AppStore {
                      source TEXT NOT NULL DEFAULT 'preset'
                          CHECK (source IN ('preset', 'custom')),
                      preset TEXT NOT NULL DEFAULT 'folded_horizon'
-                         CHECK (preset IN ('folded_horizon', 'midnight', 'graphite', 'ember')),
+                         CHECK (preset IN ('folded_horizon', 'midnight', 'graphite', 'ember', 'porcelain', 'arctic', 'linen', 'morning_mist')),
                      custom_path TEXT,
                      fit TEXT NOT NULL DEFAULT 'cover'
                          CHECK (fit IN ('cover', 'contain', 'stretch')),
@@ -168,6 +168,7 @@ impl AppStore {
         ensure_auto_calm_column(&connection)?;
         ensure_theme_column(&connection)?;
         ensure_language_column(&connection)?;
+        migrate_background_preset_constraint(&mut connection)?;
         migrate_desktop_widget_kind_constraint(&mut connection)?;
         ensure_widget_settings_column(&connection)?;
         migrate_widget_layouts(&mut connection)?;
@@ -1641,6 +1642,44 @@ fn ensure_widget_settings_column(connection: &Connection) -> Result<(), String> 
     Ok(())
 }
 
+fn migrate_background_preset_constraint(connection: &mut Connection) -> Result<(), String> {
+    let table_sql: String = connection
+        .query_row(
+            "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'monitor_backgrounds'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(database_error)?;
+    if table_sql.contains("morning_mist") {
+        return Ok(());
+    }
+
+    let transaction = connection.transaction().map_err(database_error)?;
+    transaction
+        .execute_batch(
+            "ALTER TABLE monitor_backgrounds RENAME TO monitor_backgrounds_preset_v1;
+             CREATE TABLE monitor_backgrounds (
+                 monitor_key TEXT PRIMARY KEY,
+                 source TEXT NOT NULL DEFAULT 'preset'
+                     CHECK (source IN ('preset', 'custom')),
+                 preset TEXT NOT NULL DEFAULT 'folded_horizon'
+                     CHECK (preset IN ('folded_horizon', 'midnight', 'graphite', 'ember', 'porcelain', 'arctic', 'linen', 'morning_mist')),
+                 custom_path TEXT,
+                 fit TEXT NOT NULL DEFAULT 'cover'
+                     CHECK (fit IN ('cover', 'contain', 'stretch')),
+                 overlay INTEGER NOT NULL DEFAULT 16 CHECK (overlay BETWEEN 0 AND 70),
+                 blur INTEGER NOT NULL DEFAULT 0 CHECK (blur BETWEEN 0 AND 24)
+             );
+             INSERT INTO monitor_backgrounds
+                 (monitor_key, source, preset, custom_path, fit, overlay, blur)
+             SELECT monitor_key, source, preset, custom_path, fit, overlay, blur
+             FROM monitor_backgrounds_preset_v1;
+             DROP TABLE monitor_backgrounds_preset_v1;",
+        )
+        .map_err(database_error)?;
+    transaction.commit().map_err(database_error)
+}
+
 fn migrate_desktop_widget_kind_constraint(connection: &mut Connection) -> Result<(), String> {
     let table_sql: String = connection
         .query_row(
@@ -1976,7 +2015,7 @@ mod tests {
         let display_two = BackgroundSettings {
             monitor_id: Some("display-two".into()),
             source: BackgroundSource::Custom,
-            preset: BackgroundPreset::Midnight,
+            preset: BackgroundPreset::Porcelain,
             custom_path: Some("C:\\managed\\wallpaper.webp".into()),
             fit: BackgroundFit::Contain,
             overlay: 32,
@@ -1995,6 +2034,58 @@ mod tests {
         assert_eq!(
             store.get_background_settings(None).unwrap(),
             BackgroundSettings::defaults_for(None)
+        );
+    }
+
+    #[test]
+    fn expands_background_presets_without_losing_existing_monitor_settings() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE app_settings (
+                    id INTEGER PRIMARY KEY CHECK (id = 1), template TEXT NOT NULL,
+                    opacity INTEGER NOT NULL, edit_mode INTEGER NOT NULL
+                 );
+                 INSERT INTO app_settings VALUES (1, 'focus', 82, 0);
+                 CREATE TABLE monitor_backgrounds (
+                    monitor_key TEXT PRIMARY KEY,
+                    source TEXT NOT NULL CHECK (source IN ('preset', 'custom')),
+                    preset TEXT NOT NULL CHECK (preset IN ('folded_horizon', 'midnight', 'graphite', 'ember')),
+                    custom_path TEXT,
+                    fit TEXT NOT NULL CHECK (fit IN ('cover', 'contain', 'stretch')),
+                    overlay INTEGER NOT NULL CHECK (overlay BETWEEN 0 AND 70),
+                    blur INTEGER NOT NULL CHECK (blur BETWEEN 0 AND 24)
+                 );
+                 INSERT INTO monitor_backgrounds
+                    (monitor_key, source, preset, custom_path, fit, overlay, blur)
+                 VALUES ('display-two', 'preset', 'ember', NULL, 'cover', 23, 4);",
+            )
+            .unwrap();
+
+        let store = AppStore::from_connection(connection).unwrap();
+        let previous = store
+            .get_background_settings(Some("display-two".into()))
+            .unwrap();
+        assert_eq!(previous.preset, BackgroundPreset::Ember);
+        assert_eq!(previous.overlay, 23);
+        assert_eq!(previous.blur, 4);
+
+        let arctic = store
+            .update_background_settings(BackgroundSettings {
+                monitor_id: Some("display-two".into()),
+                source: BackgroundSource::Preset,
+                preset: BackgroundPreset::Arctic,
+                custom_path: None,
+                fit: BackgroundFit::Cover,
+                overlay: 12,
+                blur: 0,
+            })
+            .unwrap();
+        assert_eq!(
+            store
+                .get_background_settings(Some("display-two".into()))
+                .unwrap(),
+            arctic
         );
     }
 

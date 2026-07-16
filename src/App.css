@@ -138,28 +138,39 @@ h2 { margin-bottom: 0; font-size: 15px; }
 .monitor-preview-content { transform-origin: top left; }
 .monitor-preview-content > .desktop-preview { width: 100%; height: 100%; }
 .desktop-preview { position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,.32); border-radius: 19px; background: #10131a; box-shadow: 0 24px 60px rgba(5,10,20,.18); isolation: isolate; }
+.desktop-preview.surface-tone-dark { --ink: #f4f5f7; --muted: #aeb5c2; --line: rgba(255,255,255,.18); --widget: #171b24; --field-bg: #202631; --subtle-bg: #222936; --switch-bg: #2b3340; --accent: #6f92d8; --accent-soft: #253553; --green: #6f92d8; --surface-grid: rgba(255,255,255,.25); }
+.desktop-preview.surface-tone-light { --ink: #172033; --muted: #626d7d; --line: rgba(23,32,51,.16); --widget: #f8f8f6; --field-bg: #ffffff; --subtle-bg: #edf0f2; --switch-bg: #dde2e7; --accent: #274a83; --accent-soft: #dce5f2; --green: #274a83; --surface-grid: rgba(23,32,51,.2); }
 .desktop-background { position: absolute; z-index: 0; inset: -24px; background-color: #10131a; background-position: center; background-repeat: no-repeat; filter: blur(var(--background-blur, 0)); transform: scale(1.04); }
-.desktop-background::before, .desktop-background::after { content: ""; position: absolute; pointer-events: none; }
-.desktop-background.preset-foldedHorizon { background: radial-gradient(ellipse at 72% 72%, rgba(242,95,92,.92) 0 9%, transparent 31%), conic-gradient(from 208deg at 62% 48%, #11131a 0 15%, #f2f3f6 16% 26%, #182e5e 27% 39%, #101117 40% 72%, #f2f3f6 73% 83%, #101117 84%); }
-.desktop-background.preset-foldedHorizon::before { inset: 11% 16% 8% 27%; border: 3.5vw solid rgba(246,247,249,.88); border-left-color: transparent; border-radius: 48% 58% 45% 55%; transform: rotate(-14deg); }
-.desktop-background.preset-midnight { background: radial-gradient(circle at 76% 18%, rgba(104,135,202,.42) 0 1%, transparent 18%), radial-gradient(circle at 19% 82%, rgba(41,74,137,.65), transparent 31%), linear-gradient(145deg, #070a12, #111b33 52%, #091020); }
-.desktop-background.preset-midnight::before { inset: 12% 8%; opacity: .7; background-image: radial-gradient(circle, rgba(255,255,255,.8) 0 1px, transparent 1.5px); background-size: 67px 59px; transform: rotate(7deg); }
-.desktop-background.preset-graphite { background: radial-gradient(ellipse at 72% 20%, rgba(244,245,247,.52), transparent 26%), radial-gradient(ellipse at 22% 88%, rgba(28,32,40,.86), transparent 42%), linear-gradient(136deg, #c3c6cc, #737984 47%, #252a33); }
-.desktop-background.preset-graphite::before { inset: -20% 38% 10% -12%; border-radius: 50%; background: rgba(238,240,243,.15); transform: rotate(27deg); backdrop-filter: blur(28px); }
-.desktop-background.preset-ember { background: radial-gradient(circle at 73% 61%, rgba(244,103,91,.9), transparent 17%), radial-gradient(circle at 31% 31%, rgba(30,58,105,.78), transparent 30%), linear-gradient(145deg, #11131a, #2c1b24 54%, #171016); }
-.desktop-background.preset-ember::before { inset: 23% -12% -31% 19%; border-radius: 52% 48% 0 0; background: linear-gradient(154deg, rgba(249,244,238,.86), rgba(242,95,92,.56) 54%, #162a55 55%); transform: rotate(-8deg); }
+.background-artwork { --art-unit: 3.5vw; }
+.background-artwork::before, .background-artwork::after { content: ""; position: absolute; pointer-events: none; }
+.background-artwork.preset-foldedHorizon { background: radial-gradient(ellipse at 72% 72%, rgba(242,95,92,.92) 0 9%, transparent 31%), conic-gradient(from 208deg at 62% 48%, #11131a 0 15%, #f2f3f6 16% 26%, #182e5e 27% 39%, #101117 40% 72%, #f2f3f6 73% 83%, #101117 84%); }
+.background-artwork.preset-foldedHorizon::before { inset: 11% 16% 8% 27%; border: var(--art-unit) solid rgba(246,247,249,.88); border-left-color: transparent; border-radius: 48% 58% 45% 55%; transform: rotate(-14deg); }
+.background-artwork.preset-midnight { background: radial-gradient(circle at 76% 18%, rgba(104,135,202,.42) 0 1%, transparent 18%), radial-gradient(circle at 19% 82%, rgba(41,74,137,.65), transparent 31%), linear-gradient(145deg, #070a12, #111b33 52%, #091020); }
+.background-artwork.preset-midnight::before { inset: 12% 8%; opacity: .7; background-image: radial-gradient(circle, rgba(255,255,255,.8) 0 1px, transparent 1.5px); background-size: 67px 59px; transform: rotate(7deg); }
+.background-artwork.preset-graphite { background: radial-gradient(ellipse at 78% 18%, rgba(129,139,157,.28), transparent 25%), radial-gradient(ellipse at 14% 88%, rgba(63,72,88,.5), transparent 38%), linear-gradient(136deg, #0d1016, #262b35 49%, #11151d); }
+.background-artwork.preset-graphite::before { inset: -24% 42% 8% -18%; border-radius: 48%; background: linear-gradient(150deg, rgba(229,232,238,.2), rgba(89,99,117,.05)); transform: rotate(25deg); }
+.background-artwork.preset-ember { background: radial-gradient(circle at 73% 61%, rgba(244,103,91,.9), transparent 17%), radial-gradient(circle at 31% 31%, rgba(30,58,105,.78), transparent 30%), linear-gradient(145deg, #11131a, #2c1b24 54%, #171016); }
+.background-artwork.preset-ember::before { inset: 23% -12% -31% 19%; border-radius: 52% 48% 0 0; background: linear-gradient(154deg, rgba(249,244,238,.86), rgba(242,95,92,.56) 54%, #162a55 55%); transform: rotate(-8deg); }
+.background-artwork.preset-porcelain { background: radial-gradient(circle at 82% 20%, rgba(55,89,147,.18), transparent 25%), radial-gradient(circle at 16% 84%, rgba(240,103,100,.13), transparent 28%), linear-gradient(142deg, #fbfaf7, #e9edf3 55%, #f5f3ef); }
+.background-artwork.preset-porcelain::before { inset: 12% 15% 9% 43%; border: var(--art-unit) solid rgba(255,255,255,.72); border-right-color: rgba(36,66,116,.48); border-radius: 47% 58% 44% 62%; transform: rotate(17deg); }
+.background-artwork.preset-arctic { background: radial-gradient(circle at 22% 18%, rgba(255,255,255,.9), transparent 25%), radial-gradient(circle at 78% 76%, rgba(96,137,180,.24), transparent 27%), linear-gradient(150deg, #eef5f7, #cddce4 52%, #e7eef2); }
+.background-artwork.preset-arctic::before { inset: -15% 42% 18% -9%; border-radius: 0 0 70% 0; background: linear-gradient(135deg, rgba(255,255,255,.76), rgba(102,137,167,.16)); transform: rotate(-9deg); }
+.background-artwork.preset-linen { background: radial-gradient(circle at 74% 24%, rgba(190,136,91,.15), transparent 26%), radial-gradient(circle at 20% 82%, rgba(43,70,111,.12), transparent 31%), linear-gradient(140deg, #f4efe5, #ded5c6 49%, #f2eadf); }
+.background-artwork.preset-linen::before { inset: 18% -6% -24% 28%; border-radius: 58% 42% 0 0; background: linear-gradient(154deg, rgba(255,252,245,.8), rgba(202,176,145,.28) 52%, rgba(43,70,111,.18)); transform: rotate(-7deg); }
+.background-artwork.preset-morningMist { background: radial-gradient(circle at 78% 19%, rgba(255,255,255,.92), transparent 22%), radial-gradient(circle at 23% 73%, rgba(91,126,116,.18), transparent 31%), linear-gradient(145deg, #edf1ef, #cfd9d7 54%, #e7e9e5); }
+.background-artwork.preset-morningMist::before { inset: 7% 10% 12% 48%; border-radius: 51% 49% 42% 58%; background: linear-gradient(165deg, rgba(255,255,255,.72), rgba(52,79,105,.14)); transform: rotate(12deg); }
 .desktop-background.custom-background::before, .desktop-background.custom-background::after { display: none; }
 .desktop-overlay { position: absolute; z-index: 1; inset: 0; pointer-events: none; }
-.layout-grid { position: absolute; z-index: 2; inset: 0; pointer-events: none; opacity: .18; background-image: linear-gradient(rgba(255,255,255,.28) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.28) 1px, transparent 1px); background-size: var(--layout-grid-size, 1%) var(--layout-grid-size, 1%); }
-.desktop-topline { position: absolute; z-index: 3; top: 17px; left: 18px; right: 18px; display: flex; justify-content: space-between; }
-.desktop-brand, .desktop-mode { padding: 7px 10px; border: 1px solid rgba(255,255,255,.2); border-radius: 99px; color: rgba(255,255,255,.9); background: rgba(25,49,43,.22); backdrop-filter: blur(14px); font-size: 10px; }
-.desktop-brand { display: inline-flex; align-items: center; gap: 6px; }
-.desktop-brand img { width: 15px; height: 15px; border-radius: 5px; }
-.desktop-icon { position: absolute; z-index: 3; top: 88px; left: 20px; width: 54px; display: grid; justify-items: center; gap: 4px; color: white; font-size: 9px; text-shadow: 0 2px 5px rgba(0,0,0,.3); }
-.desktop-icon span { font-size: 25px; }
-.desktop-icon.second { top: 157px; }
+.layout-grid { position: absolute; z-index: 2; inset: 0; pointer-events: none; opacity: .22; background-image: linear-gradient(var(--surface-grid) 1px, transparent 1px), linear-gradient(90deg, var(--surface-grid) 1px, transparent 1px); background-size: var(--layout-grid-size, 1%) var(--layout-grid-size, 1%); }
+.desktop-topline { position: absolute; z-index: 3; top: 17px; left: 18px; right: 18px; display: flex; justify-content: flex-end; }
+.desktop-mode { padding: 7px 10px; border: 1px solid var(--line); border-radius: 99px; color: var(--ink); background: color-mix(in srgb, var(--widget) 78%, transparent); backdrop-filter: blur(14px); font-size: 10px; }
 
 .wallpaper-widget { position: absolute; z-index: 3; min-width: 0; min-height: 0; padding: 16px; display: flex; flex-direction: column; overflow: hidden; container-type: size; border: 1px solid rgba(255,255,255,.42); border-radius: 16px; color: var(--ink); box-shadow: 0 16px 38px rgba(4,8,18,.24); backdrop-filter: blur(18px); transition: box-shadow .18s ease, background-color .18s ease, padding .18s ease; }
+.surface-tone-light .wallpaper-widget { border-color: rgba(23,32,51,.18); box-shadow: 0 16px 38px rgba(45,55,70,.18); }
+.surface-tone-light .wallpaper-widget.editing { outline-color: rgba(23,32,51,.7); }
+.surface-tone-light .widget-edit-rail { color: rgba(23,32,51,.76); }
+.surface-tone-light .widget-edit-rail > span { background: rgba(23,32,51,.13); }
+.surface-tone-light .widget-edit-rail > span i, .surface-tone-light .resize-handle::after { background: rgba(23,32,51,.72); }
 .wallpaper-widget.editing { padding-top: 36px; outline: 1px dashed rgba(255,255,255,.8); outline-offset: 4px; box-shadow: 0 20px 46px rgba(4,8,18,.32); }
 .wallpaper-widget.editing.layout-locked { outline-style: solid; outline-color: rgba(242,95,92,.82); }
 .wallpaper-widget.editing.layout-invalid { outline: 2px solid #ff4d5f; background-color: rgba(112, 17, 29, .78) !important; box-shadow: 0 0 0 6px rgba(255, 77, 95, .2), 0 24px 58px rgba(4,8,18,.35); }
@@ -323,11 +334,7 @@ h2 { margin-bottom: 0; font-size: 15px; }
 .background-option.active { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 12%, transparent); }
 .background-option b { display: block; padding: 5px 3px 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 9px; font-weight: 600; }
 .background-option.active b { color: var(--ink); }
-.background-swatch { position: relative; width: 100%; height: 46px; display: grid; place-items: center; overflow: hidden; border-radius: 8px; color: var(--muted); background-color: #10131a; }
-.background-swatch.preset-foldedHorizon { background: radial-gradient(ellipse at 72% 72%, rgba(242,95,92,.92) 0 9%, transparent 31%), conic-gradient(from 208deg at 62% 48%, #11131a 0 15%, #f2f3f6 16% 26%, #182e5e 27% 39%, #101117 40% 72%, #f2f3f6 73% 83%, #101117 84%); }
-.background-swatch.preset-midnight { background: radial-gradient(circle at 76% 18%, rgba(104,135,202,.65), transparent 24%), radial-gradient(circle at 19% 82%, rgba(41,74,137,.75), transparent 31%), linear-gradient(145deg, #070a12, #111b33 52%, #091020); }
-.background-swatch.preset-graphite { background: radial-gradient(ellipse at 72% 20%, rgba(244,245,247,.52), transparent 26%), radial-gradient(ellipse at 22% 88%, rgba(28,32,40,.86), transparent 42%), linear-gradient(136deg, #c3c6cc, #737984 47%, #252a33); }
-.background-swatch.preset-ember { background: radial-gradient(circle at 73% 61%, rgba(244,103,91,.9), transparent 19%), radial-gradient(circle at 31% 31%, rgba(30,58,105,.78), transparent 30%), linear-gradient(145deg, #11131a, #2c1b24 54%, #171016); }
+.background-swatch { --art-unit: 5px; position: relative; width: 100%; height: 46px; display: grid; place-items: center; overflow: hidden; border-radius: 8px; color: var(--muted); background-color: #10131a; }
 .custom-swatch { border: 1px dashed var(--line); color: var(--muted); background: var(--field-bg); font-size: 18px; }
 .background-adjustments { justify-content: flex-start; flex-wrap: wrap; }
 .background-fit-control { min-width: 130px; }
@@ -537,8 +544,6 @@ h2 { margin-bottom: 0; font-size: 15px; }
 .wallpaper-error { position: absolute; z-index: 30; top: 74px; left: 50%; padding: 9px 12px; border-radius: 9px; color: var(--error-ink); background: var(--error-bg); font-size: 11px; transform: translateX(-50%); }
 .desktop-preview.actual-surface { width: 100%; height: 100%; min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; }
 .actual-surface .desktop-topline { top: 22px; left: 24px; right: 24px; }
-.actual-surface .desktop-icon { top: 100px; left: 28px; font-size: 11px; }
-.actual-surface .desktop-icon.second { top: 188px; }
 .actual-widget .widget-header h3 { font-size: 22px; }
 .actual-widget .widget-tasks label { min-height: 46px; font-size: 13px; }
 .actual-widget .widget-tasks time, .actual-widget .focus-action > span, .actual-widget .kanban-column > span, .actual-widget .kanban-card { font-size: 11px; }

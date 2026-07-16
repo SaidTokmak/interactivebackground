@@ -21,6 +21,8 @@ import { MonitorPreview } from "./MonitorPreview";
 import { monitorLayoutViewport } from "./widgetLayout";
 import { usePomodoroAlerts } from "./usePomodoroAlerts";
 import { useWidgetStore } from "./useWidgetStore";
+import { BACKGROUND_PRESETS } from "./backgroundPresets";
+import { BackgroundArtwork } from "./BackgroundArtwork";
 
 export function ControlWindow() {
   const { tasks, error: taskError, addTask, toggleTask, moveTask, removeTask } = useTasks();
@@ -336,7 +338,7 @@ export function ControlWindow() {
             {inspectorTab === "background" && <section className="background-panel inspector-section">
               <div className="background-heading"><div><h3>{t("background.title")}</h3><span>{t("background.subtitle")}</span></div><button className="background-file-button" onClick={() => void chooseBackgroundImage()}>{background.source === "custom" ? t("background.replace") : t("background.choose")}</button></div>
               <div className="background-options">
-                {(["foldedHorizon", "midnight", "graphite", "ember"] as BackgroundPreset[]).map((preset) => { const name = t(`background.${preset}` as TranslationKey); return <button className={`background-option ${background.source === "preset" && background.preset === preset ? "active" : ""}`} aria-label={t("background.presetAria", { name })} onClick={() => selectPreset(preset)} key={preset}><span className={`background-swatch preset-${preset}`} /><b>{name}</b></button>; })}
+                {BACKGROUND_PRESETS.map((preset) => { const name = t(`background.${preset}` as TranslationKey); return <button className={`background-option ${background.source === "preset" && background.preset === preset ? "active" : ""}`} aria-label={t("background.presetAria", { name })} onClick={() => selectPreset(preset)} key={preset}><BackgroundArtwork compact preset={preset} /><b>{name}</b></button>; })}
                 <button className={`background-option custom-option ${background.source === "custom" ? "active" : ""}`} onClick={() => void chooseBackgroundImage()}><span className="background-swatch custom-swatch">＋</span><b>{t("background.custom")}</b></button>
               </div>
               <div className="background-adjustments">

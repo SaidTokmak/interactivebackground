@@ -11,7 +11,7 @@ export type WallpaperTemplate = "focus" | "kanban";
 export type ThemePreference = "system" | "light" | "dark";
 export type LanguagePreference = "system" | "tr" | "en";
 export type BackgroundSource = "preset" | "custom";
-export type BackgroundPreset = "foldedHorizon" | "midnight" | "graphite" | "ember";
+export type BackgroundPreset = "foldedHorizon" | "midnight" | "graphite" | "ember" | "porcelain" | "arctic" | "linen" | "morningMist";
 export type BackgroundFit = "cover" | "contain" | "stretch";
 
 export type BackgroundSettings = {

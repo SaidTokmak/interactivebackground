@@ -369,6 +369,19 @@ regresyonuyla doğrulandı.
 Kabul ölçütü: Wallpaper üzerinde ürüne ait dummy içerik kalmaz; açık ve koyu
 tema ailesi 16:9, ultrawide ve 4K ekranlarda bozulmadan görünür.
 
+**Tamamlandı.** Wallpaper yüzeyinden logo, ürün adı, sahte `Projects` ve
+`Recycle Bin` ikonları ile sakin mod rozeti kaldırıldı; düzenleme rozeti ve
+kılavuzları yalnızca edit modunda çiziliyor. Folded Horizon, Midnight, Graphite
+ve Ember koyu; Porcelain, Arctic, Linen ve Morning Mist açık olmak üzere sekiz
+modern preset hazırlandı. Tema kartları, yönetim önizlemesi ve gerçek wallpaper
+aynı `BackgroundArtwork` bileşenini ve katmanlarını kullanıyor. Preset tonu,
+widget cam yüzeyi ile yazı/çizgi renklerini uygulama temasından bağımsız otomatik
+seçiyor; özel görsellerde mevcut karartma, blur ve koyu cam davranışı korunuyor.
+Eski dört presetli SQLite CHECK constraint'i mevcut monitör seçimlerini koruyan
+migration ile sekiz presete genişletildi. Migration ve açık tema kalıcılığı 30
+Rust testiyle; sekiz kart, açık/koyu kontrast, dummy temizliği ve 1920×1080,
+3440×1440, 3840×2160 renderları production browser regresyonuyla doğrulandı.
+
 ### 9.9 — Regresyon, performans ve beta kabul turu
 
 - Pencere yaşam döngüsü, çarpışma, grid, preview dönüşümü, saat ayarları ve
@@ -398,6 +411,6 @@ korunur ve beta checklist'in bütün kritik maddeleri geçer.
 
 ## Önerilen bir sonraki çalışma
 
-Faz 9.8 ile devam edilmeli; gerçek wallpaper yüzeyindeki marka/dummy masaüstü
-içeriği temizlenmeli ve açık-koyu modern tema koleksiyonu gerçek render yoluyla
-hazırlanmalıdır.
+Faz 9.9 ile devam edilmeli; pencere yaşam döngüsü, çoklu monitör/DPI,
+migration snapshot, performans ve temiz `v0.2.0-beta` kullanıcı kabul turu tek
+bir regresyon checklist'i üzerinden tamamlanmalıdır.

@@ -37,6 +37,10 @@ pub enum BackgroundPreset {
     Midnight,
     Graphite,
     Ember,
+    Porcelain,
+    Arctic,
+    Linen,
+    MorningMist,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -626,6 +630,10 @@ impl BackgroundPreset {
             Self::Midnight => "midnight",
             Self::Graphite => "graphite",
             Self::Ember => "ember",
+            Self::Porcelain => "porcelain",
+            Self::Arctic => "arctic",
+            Self::Linen => "linen",
+            Self::MorningMist => "morning_mist",
         }
     }
 
@@ -635,6 +643,10 @@ impl BackgroundPreset {
             "midnight" => Ok(Self::Midnight),
             "graphite" => Ok(Self::Graphite),
             "ember" => Ok(Self::Ember),
+            "porcelain" => Ok(Self::Porcelain),
+            "arctic" => Ok(Self::Arctic),
+            "linen" => Ok(Self::Linen),
+            "morning_mist" => Ok(Self::MorningMist),
             other => Err(format!("Bilinmeyen arka plan teması: {other}")),
         }
     }
