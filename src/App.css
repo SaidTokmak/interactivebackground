@@ -85,8 +85,8 @@ button { color: inherit; }
 .update-button.is-available { color: white; border-color: var(--accent); background: var(--accent); }
 .update-button.has-error { color: #be4e55; border-color: rgba(190,78,85,.35); }
 
-.workspace { height: calc(100vh - 72px); display: grid; grid-template-columns: minmax(340px, 400px) 1fr; }
-.control-panel { padding: 34px 28px; background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; }
+.workspace { height: calc(100vh - 72px); display: grid; grid-template-columns: minmax(270px, 320px) minmax(420px, 1fr) minmax(290px, 340px); }
+.control-panel { min-width: 0; padding: 26px 22px; background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; }
 .panel-heading { align-items: flex-end; }
 .eyebrow { margin: 0 0 8px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .14em; }
 h1, h2, h3, p { margin-top: 0; }
@@ -121,7 +121,9 @@ h2 { margin-bottom: 0; font-size: 15px; }
 .delete-button { padding: 0; border: 0; color: #a3ada7; background: transparent; font-size: 20px; cursor: pointer; opacity: 0; transition: opacity .15s ease; }
 .manager-task:hover .delete-button { opacity: 1; }
 
-.preview-area { min-width: 0; padding: 30px 32px; overflow-y: auto; background: var(--preview-bg); transition: background-color .2s ease; }
+.preview-area { min-width: 0; padding: 24px; overflow-y: auto; background: var(--preview-bg); transition: background-color .2s ease; }
+.canvas-panel { display: flex; flex-direction: column; overflow: hidden; }
+.canvas-panel .monitor-preview-stage { min-height: 320px; flex: 1 1 auto; }
 .preview-toolbar { margin-bottom: 16px; }
 .preview-toolbar h2 { font-family: Georgia, serif; font-size: 23px; font-weight: 500; }
 .preview-tools { display: flex; align-items: center; gap: 8px; }
@@ -342,6 +344,49 @@ h2 { margin-bottom: 0; font-size: 15px; }
 .language-control { min-width: 145px; }
 .auto-calm-control { min-width: 150px; }
 
+.inspector-panel { min-width: 0; display: grid; grid-template-rows: auto auto minmax(0, 1fr); border-left: 1px solid var(--line); background: var(--panel); }
+.inspector-heading { position: relative; padding: 24px 18px 15px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.inspector-heading h2 { font-family: Georgia, serif; font-size: 20px; font-weight: 500; }
+.add-widget-wrap { position: relative; flex: 0 0 auto; }
+.add-widget-button { padding: 8px 10px; border: 0; border-radius: 9px; color: white; background: var(--accent); font-size: 9px; font-weight: 650; cursor: pointer; }
+.widget-picker { position: absolute; z-index: 40; top: calc(100% + 7px); right: 0; width: min(280px, calc(100vw - 32px)); max-height: min(420px, calc(100vh - 150px)); padding: 7px; display: grid; gap: 4px; overflow-y: auto; border: 1px solid var(--line); border-radius: 13px; background: var(--panel); box-shadow: 0 20px 52px rgba(4,8,16,.28); }
+.widget-picker button { min-width: 0; padding: 7px; display: grid; grid-template-columns: 30px minmax(0, 1fr); align-items: center; gap: 9px; border: 0; border-radius: 9px; color: var(--ink); text-align: left; background: transparent; cursor: pointer; }
+.widget-picker button:hover { background: var(--subtle-bg); }
+.widget-picker b { overflow: hidden; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
+.inspector-tabs { margin: 0 18px; padding: 3px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; border: 1px solid var(--line); border-radius: 10px; background: var(--switch-bg); }
+.inspector-tabs button { min-width: 0; padding: 7px 4px; border: 0; border-radius: 7px; color: var(--muted); background: transparent; font-size: 9px; cursor: pointer; }
+.inspector-tabs button.active { color: var(--ink); background: var(--field-bg); box-shadow: 0 2px 7px rgba(5,10,20,.13); }
+.inspector-scroll { min-width: 0; padding: 14px 18px 22px; overflow-y: auto; }
+.widget-selector { display: flex; gap: 6px; padding-bottom: 10px; overflow-x: auto; scrollbar-width: thin; }
+.widget-selector > button { min-width: 122px; padding: 7px; display: grid; grid-template-columns: 30px minmax(0,1fr); align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 10px; color: var(--ink); text-align: left; background: var(--field-bg); cursor: pointer; }
+.widget-selector > button.selected { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 14%, transparent); }
+.widget-selector > button > span:last-child { min-width: 0; display: grid; gap: 2px; }
+.widget-selector b, .widget-selector small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.widget-selector b { font-size: 8px; }
+.widget-selector small { color: var(--muted); font-size: 7px; }
+.selected-widget-card { padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: var(--card-bg); }
+.selected-widget-title { display: flex; align-items: center; gap: 9px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.selected-widget-title h3 { margin: 0 0 2px; font-size: 12px; }
+.selected-widget-title div > span { color: var(--muted); font-size: 8px; }
+.inspector-switches { display: grid; gap: 12px; padding: 15px 0; }
+.inspector-switches .switch-row { align-items: flex-start; }
+.inspector-switches .switch-row > input { flex: 0 0 auto; }
+.inspector-pomodoro { padding: 12px 0; border-top: 1px solid var(--line); }
+.inspector-pomodoro label { flex: 1; }
+.inspector-pomodoro input { width: 100%; box-sizing: border-box; }
+.inspector-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
+.inspector-actions button { min-width: 0; padding: 7px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--field-bg); font-size: 8px; cursor: pointer; }
+.inspector-actions button:disabled { opacity: .35; cursor: default; }
+.inspector-actions button.danger { color: var(--coral); }
+.inspector-section { margin: 0; padding: 0; border: 0; background: transparent; }
+.inspector-section.preview-controls { display: grid; align-content: start; gap: 16px; padding-top: 2px; }
+.inspector-section :is(.monitor-control, .opacity-control, .switch-row) { width: 100%; min-width: 0; box-sizing: border-box; }
+.inspector-section .background-heading { align-items: flex-start; }
+.inspector-section .background-options { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.inspector-section .background-options .custom-option:last-child { grid-column: 1 / -1; }
+.inspector-section .background-adjustments { display: grid; grid-template-columns: 1fr; }
+.inspector-section .background-range { width: 100%; }
+
 .onboarding-backdrop { position: fixed; z-index: 100; inset: 0; padding: 24px; display: grid; place-items: center; background: rgba(5, 8, 16, .72); backdrop-filter: blur(15px); }
 .onboarding-dialog { width: min(1040px, calc(100vw - 48px)); height: min(680px, calc(100vh - 48px)); min-height: 560px; display: grid; grid-template-columns: 250px 1fr; overflow: hidden; border: 1px solid color-mix(in srgb, var(--line) 78%, white 22%); border-radius: 24px; background: var(--panel); box-shadow: 0 34px 100px rgba(0, 0, 0, .46); }
 .onboarding-rail { padding: 30px 26px; display: flex; flex-direction: column; color: #f2f3f6; background: radial-gradient(circle at 18% 90%, rgba(242,95,92,.28), transparent 29%), radial-gradient(circle at 88% 12%, rgba(77,114,189,.45), transparent 32%), #10131a; }
@@ -430,24 +475,46 @@ h2 { margin-bottom: 0; font-size: 15px; }
 .actual-widget .widget-tasks time, .actual-widget .focus-action > span, .actual-widget .kanban-column > span, .actual-widget .kanban-card { font-size: 11px; }
 .actual-widget .kanban-card { padding: 11px; }
 
-@media (max-width: 1000px) {
-  .workspace { grid-template-columns: 340px 1fr; }
-  .control-panel { padding-inline: 22px; }
-  .preview-area { padding-inline: 24px; }
+@media (max-width: 1250px) {
+  .workspace { grid-template-columns: minmax(230px, 260px) minmax(380px, 1fr) minmax(270px, 300px); }
+  .control-panel { padding: 22px 18px; }
+  .preview-area { padding: 22px 18px; }
+  .app-header { padding-inline: 18px; }
+  .status-dot { display: none; }
   .wallpaper-widget { width: calc(100% - 100px); }
-  .background-options { grid-template-columns: repeat(3, 1fr); }
   .layout-panel { align-items: flex-start; flex-direction: column; }
   .layout-actions { justify-content: flex-start; }
-  .widget-panel-heading { flex-direction: column; }
-  .widget-catalog { justify-content: flex-start; }
-  .widget-manager-item { grid-template-columns: 32px 1fr; }
-  .pomodoro-settings, .widget-manager-actions { grid-column: 1 / -1; justify-content: flex-start; }
   .onboarding-dialog { grid-template-columns: 190px 1fr; }
   .onboarding-rail { padding-inline: 20px; }
   .onboarding-step { padding-inline: 34px; }
 }
 
+@media (max-width: 920px) {
+  body { overflow: auto; }
+  .app-shell { min-width: 320px; }
+  .app-header { min-height: 62px; height: auto; padding-block: 10px; gap: 10px; }
+  .brand-lockup > div span, .update-button { display: none; }
+  .header-actions { gap: 6px; }
+  .header-button { padding-inline: 9px; }
+  .management-workspace { height: calc(100vh - 62px); grid-template-columns: 1fr; grid-template-rows: auto auto auto; overflow-y: auto; }
+  .control-panel { min-height: 320px; max-height: 420px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .canvas-panel { min-height: 480px; overflow: visible; }
+  .inspector-panel { min-height: 460px; border-left: 0; border-top: 1px solid var(--line); }
+  .inspector-scroll { overflow: visible; }
+  .canvas-panel .monitor-preview-stage { min-height: 350px; }
+}
+
 @media (max-width: 720px) {
+  .app-header { align-items: flex-start; }
+  .header-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .brand-lockup > div { display: none; }
+  .preview-toolbar { align-items: flex-start; gap: 10px; }
+  .preview-tools { align-items: flex-end; flex-direction: column; }
+  .canvas-panel { min-height: 390px; padding: 16px 12px; }
+  .canvas-panel .monitor-preview-stage { min-height: 270px; padding: 10px; border-radius: 15px; }
+  .control-panel { padding: 20px 16px; }
+  .inspector-heading, .inspector-scroll { padding-inline: 14px; }
+  .inspector-tabs { margin-inline: 14px; }
   .onboarding-backdrop { padding: 0; }
   .onboarding-dialog { width: 100vw; height: 100vh; min-height: 0; grid-template-columns: 1fr; border: 0; border-radius: 0; }
   .onboarding-rail { display: none; }

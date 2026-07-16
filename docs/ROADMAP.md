@@ -252,6 +252,15 @@ Kabul ölçütü: Yönetim penceresinde yatay taşma veya üst üste binen kontr
 oluşmaz; ana eylemler tek bakışta bulunur ve seçili widget ekrandan ayrılmadan
 düzenlenebilir.
 
+**Tamamlandı.** Yönetim yüzeyi görev rayı, ölçeklenen canlı canvas ve kalıcı
+inspector olarak üçe ayrıldı. Widget kataloğu açılır `Widget ekle` akışına
+taşındı; ekrandaki widget'lar yatay seçicide listeleniyor ve görünürlük, kilit,
+ızgara, sıra, çoğaltma, silme ile Pomodoro süreleri seçili widget kartından
+yönetiliyor. Arka plan ve genel çalışma alanı ayarları ayrı sekmelere alındı.
+1440×900 ve 820×900 tarayıcı regresyonunda yatay taşma oluşmadığı, dar görünümde
+üç alanın okunabilir sırayla kaydırıldığı ve katalog/sekme akışlarının çalıştığı
+doğrulandı.
+
 ### 9.5 — Pomodoro bildirim ve ses güvenilirliği
 
 - Pomodoro tamamlanması uygulama açık, tray'de gizli ve wallpaper yeniden
@@ -356,5 +365,6 @@ korunur ve beta checklist'in bütün kritik maddeleri geçer.
 
 ## Önerilen bir sonraki çalışma
 
-Faz 9.4 ile devam edilmeli; görevler, masaüstü canvas'ı, widget kataloğu ve seçili
-widget ayarları responsive bir yönetim çalışma alanında yeniden gruplanmalıdır.
+Faz 9.5 ile devam edilmeli; Pomodoro tamamlanma akışı native bildirim, paketlenmiş
+ses ve izin/durum geri bildirimiyle uygulama yaşam döngüsü boyunca güvenilir hale
+getirilmelidir.

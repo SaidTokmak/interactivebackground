@@ -72,8 +72,10 @@ export function useDesktopWidgets(monitorId: string | null, language: LanguagePr
       setWidgets((current) => [...current, widget]);
       if (kind === "pomodoro") setPomodoros((current) => ({ ...current, [widget.id]: { widgetId: widget.id, mode: "work", workMinutes: 25, breakMinutes: 5, remainingSeconds: 1500, running: false, endsAt: null } }));
       setWidgetError("");
+      return widget;
     } catch (reason) {
       setWidgetError(String(reason));
+      return undefined;
     }
   }
 
