@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { cancel, isPermissionGranted, requestPermission, Schedule, sendNotification } from "@tauri-apps/plugin-notification";
+import { cancel } from "@tauri-apps/plugin-notification";
 import {
   addDesktopWidget,
   configurePomodoro,
@@ -13,9 +13,9 @@ import {
   updateDesktopWidget,
   updatePomodoro,
 } from "./taskApi";
-import type { DesktopWidget, LanguagePreference, PomodoroAction, PomodoroState, WidgetKind } from "./types";
+import type { DesktopWidget, PomodoroAction, PomodoroState, WidgetKind } from "./types";
 
-export function useDesktopWidgets(monitorId: string | null, language: LanguagePreference) {
+export function useDesktopWidgets(monitorId: string | null) {
   const [widgets, setWidgets] = useState<DesktopWidget[]>([]);
   const [pomodoros, setPomodoros] = useState<Record<number, PomodoroState>>({});
   const [widgetError, setWidgetError] = useState("");
@@ -137,21 +137,6 @@ export function useDesktopWidgets(monitorId: string | null, language: LanguagePr
       if (isTauriRuntime() && action !== "complete") await cancel([widgetId]).catch(() => undefined);
       const state = await updatePomodoro(widgetId, action);
       setPomodoros((current) => ({ ...current, [widgetId]: state }));
-      if (action === "start" && state.running && state.endsAt && isTauriRuntime()) {
-        let granted = await isPermissionGranted();
-        if (!granted) granted = await requestPermission() === "granted";
-        if (granted) {
-          const turkish = language === "tr" || (language === "system" && navigator.language.toLowerCase().startsWith("tr"));
-          sendNotification({
-            id: widgetId,
-            title: turkish ? "Pomodoro tamamlandı" : "Pomodoro complete",
-            body: state.mode === "work"
-              ? (turkish ? "Odak seansı bitti. Mola zamanı." : "Focus session finished. Time for a break.")
-              : (turkish ? "Mola bitti. Yeni odak seansına hazırsın." : "Break finished. Ready for another focus session."),
-            schedule: Schedule.at(new Date(state.endsAt * 1_000)),
-          });
-        }
-      }
       setWidgetError("");
     } catch (reason) {
       setWidgetError(String(reason));

@@ -275,6 +275,16 @@ doğrulandı.
 Kabul ölçütü: İzin verilen normal sistem koşullarında seans bitişi tek bildirim
 ve tek ses üretir; duraklatılan/sıfırlanan sayaç eski bildirimi tetiklemez.
 
+**Tamamlandı.** Seans bitişi React yüzeylerinin yaşam döngüsünden çıkarılarak
+Rust tarafındaki arka plan servisine taşındı. Süresi dolan sayaçlar SQLite
+transaction'ı içinde atomik olarak ilerletiliyor; böylece wallpaper yeniden
+oluşturulsa veya yönetim penceresi tray'de gizlense bile aynı bitiş yalnızca bir
+kez işleniyor. Native bildirim, yerleşik kısa ses, ses seviyesi, `Sesi dene`,
+kalıcı aç/kapat tercihleri, izin durumu ve Windows bildirim ayarlarına yönlendirme
+eklendi. Duraklatma/sıfırlama sonrası eski alarm üretmeme ve tercih doğrulama
+senaryoları Rust testleriyle; ayar yüzeyi geniş/dar yönetim görünümünde tarayıcı
+regresyonuyla doğrulandı.
+
 ### 9.6 — Çekirdek widget'lar ve güvenli Widget Store
 
 - Varsayılan çekirdek katalog dört araçla sınırlandırılacak: Odak Görevleri,
@@ -365,6 +375,6 @@ korunur ve beta checklist'in bütün kritik maddeleri geçer.
 
 ## Önerilen bir sonraki çalışma
 
-Faz 9.5 ile devam edilmeli; Pomodoro tamamlanma akışı native bildirim, paketlenmiş
-ses ve izin/durum geri bildirimiyle uygulama yaşam döngüsü boyunca güvenilir hale
-getirilmelidir.
+Faz 9.6 ile devam edilmeli; yeni kullanıcı kataloğu dört çekirdek widget ile
+sadeleştirilirken mevcut isteğe bağlı widget'lar veri kaybı olmadan güvenli,
+manifest tabanlı Widget Store modeline taşınmalıdır.

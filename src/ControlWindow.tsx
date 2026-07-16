@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { disable, enable, isEnabled } from "@tauri-apps/plugin-autostart";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { chooseBackgroundImage as openBackgroundImage, completeOnboarding, getDesktopHostStatus, getOnboardingStatus, hideWallpaper, isTauriRuntime, showWallpaper } from "./taskApi";
 import type { BackgroundFit, BackgroundPreset, DesktopHostStatus, LanguagePreference, OnboardingPreferences, ThemePreference, WidgetKind } from "./types";
 import { useI18n } from "./i18n";
@@ -18,13 +19,15 @@ import { UpdateControl } from "./UpdateControl";
 import { useLayoutGrid } from "./useLayoutGrid";
 import { MonitorPreview } from "./MonitorPreview";
 import { monitorLayoutViewport } from "./widgetLayout";
+import { usePomodoroAlerts } from "./usePomodoroAlerts";
 
 export function ControlWindow() {
   const { tasks, error: taskError, addTask, toggleTask, moveTask, removeTask } = useTasks();
   const { settings, settingsError, saveSettings, refreshSettings } = useSettings();
   const { monitors, monitorError } = useMonitors();
   const { background, backgroundError, saveBackground } = useBackgroundSettings(settings.monitorId);
-  const { widgets, pomodoros, widgetError, addWidget, saveWidget, duplicateWidget, removeWidget, moveWidget, controlPomodoro, savePomodoroDurations } = useDesktopWidgets(settings.monitorId, settings.language);
+  const { widgets, pomodoros, widgetError, addWidget, saveWidget, duplicateWidget, removeWidget, moveWidget, controlPomodoro, savePomodoroDurations } = useDesktopWidgets(settings.monitorId);
+  const { preferences: pomodoroPreferences, permission: notificationPermission, alertError, savePreferences: savePomodoroPreferences, requestNotificationPermission, testSound } = usePomodoroAlerts();
   const [title, setTitle] = useState("");
   const [time, setTime] = useState("");
   const [opacityDraft, setOpacityDraft] = useState(settings.opacity);
@@ -34,6 +37,7 @@ export function ControlWindow() {
   const [integrationError, setIntegrationError] = useState("");
   const [overlayDraft, setOverlayDraft] = useState(background.overlay);
   const [blurDraft, setBlurDraft] = useState(background.blur);
+  const [pomodoroVolumeDraft, setPomodoroVolumeDraft] = useState(pomodoroPreferences.soundVolume);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
   const [selectedWidgetId, setSelectedWidgetId] = useState<number | null>(null);
@@ -47,6 +51,7 @@ export function ControlWindow() {
   useEffect(() => setOpacityDraft(settings.opacity), [settings.opacity]);
   useEffect(() => setOverlayDraft(background.overlay), [background.overlay]);
   useEffect(() => setBlurDraft(background.blur), [background.blur]);
+  useEffect(() => setPomodoroVolumeDraft(pomodoroPreferences.soundVolume), [pomodoroPreferences.soundVolume]);
   useEffect(() => {
     if (widgets.length === 0) setSelectedWidgetId(null);
     else if (!widgets.some((widget) => widget.id === selectedWidgetId)) setSelectedWidgetId(widgets[0].id);
@@ -222,7 +227,7 @@ export function ControlWindow() {
               </form>
             )}
 
-            {(taskError || settingsError || backgroundError || widgetError || monitorError || integrationError || desktopStatus?.warning) && <p className="error-message" role="alert">{localizeError(taskError || settingsError || backgroundError || widgetError || monitorError || integrationError || desktopStatus?.warning || "")}</p>}
+            {(taskError || settingsError || backgroundError || widgetError || alertError || monitorError || integrationError || desktopStatus?.warning) && <p className="error-message" role="alert">{localizeError(taskError || settingsError || backgroundError || widgetError || alertError || monitorError || integrationError || desktopStatus?.warning || "")}</p>}
 
             <div className="manager-list">
               {tasks.map((task) => (
@@ -289,6 +294,19 @@ export function ControlWindow() {
                   <label>{t("pomodoro.workShort")}<input key={`work-${pomodoros[selectedWidget.id].workMinutes}`} type="number" min="1" max="180" defaultValue={pomodoros[selectedWidget.id].workMinutes} onBlur={(event) => void savePomodoroDurations(selectedWidget.id, Number(event.currentTarget.value), pomodoros[selectedWidget.id].breakMinutes)} /></label>
                   <label>{t("pomodoro.breakShort")}<input key={`break-${pomodoros[selectedWidget.id].breakMinutes}`} type="number" min="1" max="60" defaultValue={pomodoros[selectedWidget.id].breakMinutes} onBlur={(event) => void savePomodoroDurations(selectedWidget.id, pomodoros[selectedWidget.id].workMinutes, Number(event.currentTarget.value))} /></label>
                 </div>}
+                {selectedWidget.kind === "pomodoro" && <section className="pomodoro-alert-settings">
+                  <h4>{t("pomodoro.alertsTitle")}</h4>
+                  <label className="switch-row"><input type="checkbox" checked={pomodoroPreferences.notificationsEnabled} onChange={(event) => void savePomodoroPreferences({ ...pomodoroPreferences, notificationsEnabled: event.target.checked })} /><span><b>{t("pomodoro.notifications")}</b><small>{t("pomodoro.notificationsHelp")}</small></span></label>
+                  {pomodoroPreferences.notificationsEnabled && <div className={`notification-permission is-${notificationPermission}`}>
+                    <span><i />{t(`pomodoro.permission.${notificationPermission}` as TranslationKey)}</span>
+                    {notificationPermission !== "granted" && <button onClick={() => void requestNotificationPermission()}>{t("pomodoro.permissionRequest")}</button>}
+                    {notificationPermission === "denied" && navigator.userAgent.includes("Windows") && <button onClick={() => void openUrl("ms-settings:notifications")}>{t("pomodoro.openSystemSettings")}</button>}
+                  </div>}
+                  <label className="switch-row"><input type="checkbox" checked={pomodoroPreferences.soundEnabled} onChange={(event) => void savePomodoroPreferences({ ...pomodoroPreferences, soundEnabled: event.target.checked })} /><span><b>{t("pomodoro.sound")}</b><small>{t("pomodoro.soundHelp")}</small></span></label>
+                  <label className="opacity-control pomodoro-volume"><span>{t("pomodoro.volume")} <b>%{pomodoroVolumeDraft}</b></span><input disabled={!pomodoroPreferences.soundEnabled} type="range" min="0" max="100" value={pomodoroVolumeDraft} onChange={(event) => setPomodoroVolumeDraft(Number(event.target.value))} onPointerUp={() => void savePomodoroPreferences({ ...pomodoroPreferences, soundVolume: pomodoroVolumeDraft })} onKeyUp={() => void savePomodoroPreferences({ ...pomodoroPreferences, soundVolume: pomodoroVolumeDraft })} /></label>
+                  <button className="test-sound-button" disabled={!pomodoroPreferences.soundEnabled} onClick={() => void testSound()}>{t("pomodoro.testSound")}</button>
+                  <p>{t("pomodoro.systemSoundNote")}</p>
+                </section>}
                 <div className="inspector-actions">
                   <button disabled={selectedWidgetIndex === 0} onClick={() => void moveWidget(selectedWidget.id, -1)}>↑ {t("widgets.moveUpShort")}</button>
                   <button disabled={selectedWidgetIndex === widgets.length - 1} onClick={() => void moveWidget(selectedWidget.id, 1)}>↓ {t("widgets.moveDownShort")}</button>

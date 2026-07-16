@@ -374,6 +374,17 @@ h2 { margin-bottom: 0; font-size: 15px; }
 .inspector-pomodoro { padding: 12px 0; border-top: 1px solid var(--line); }
 .inspector-pomodoro label { flex: 1; }
 .inspector-pomodoro input { width: 100%; box-sizing: border-box; }
+.pomodoro-alert-settings { display: grid; gap: 12px; padding: 14px 0; border-top: 1px solid var(--line); }
+.pomodoro-alert-settings h4 { margin: 0; font-size: 10px; }
+.pomodoro-alert-settings > p { margin: 0; color: var(--muted); font-size: 8px; line-height: 1.45; }
+.notification-permission { padding: 9px; display: grid; gap: 6px; border: 1px solid var(--line); border-radius: 9px; background: var(--field-bg); }
+.notification-permission > span { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 8px; }
+.notification-permission i { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: #a07742; }
+.notification-permission.is-granted i { background: var(--green); }
+.notification-permission button, .test-sound-button { padding: 7px 8px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--panel); font-size: 8px; cursor: pointer; }
+.notification-permission button:hover, .test-sound-button:hover { border-color: var(--accent); }
+.pomodoro-volume { width: 100%; }
+.pomodoro-volume input:disabled, .test-sound-button:disabled { cursor: not-allowed; opacity: .4; }
 .inspector-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding-top: 12px; border-top: 1px solid var(--line); }
 .inspector-actions button { min-width: 0; padding: 7px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: var(--field-bg); font-size: 8px; cursor: pointer; }
 .inspector-actions button:disabled { opacity: .35; cursor: default; }

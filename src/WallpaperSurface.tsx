@@ -44,7 +44,6 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
   const { t, formatDate } = useI18n(language);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const interactionRef = useRef<ActiveInteraction | null>(null);
-  const completedPomodorosRef = useRef(new Set<string>());
   const [liveWidgets, setLiveWidgets] = useState(widgets);
   const [invalidWidgetId, setInvalidWidgetId] = useState<number | null>(null);
   const [now, setNow] = useState(() => new Date());
@@ -55,16 +54,6 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
     const timer = window.setInterval(() => setNow(new Date()), 1_000);
     return () => window.clearInterval(timer);
   }, []);
-  useEffect(() => {
-    const timestamp = Math.floor(now.getTime() / 1_000);
-    Object.values(pomodoros).forEach((state) => {
-      if (!state.running || state.endsAt === null || state.endsAt > timestamp) return;
-      const completionKey = `${state.widgetId}:${state.endsAt}`;
-      if (completedPomodorosRef.current.has(completionKey)) return;
-      completedPomodorosRef.current.add(completionKey);
-      onPomodoroAction(state.widgetId, "complete");
-    });
-  }, [now, onPomodoroAction, pomodoros]);
 
   const completed = tasks.filter((task) => task.status === "done").length;
   const progress = tasks.length === 0 ? 0 : Math.round((completed / tasks.length) * 100);

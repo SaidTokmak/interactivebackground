@@ -12,8 +12,8 @@ use crate::{
     settings::{
         AppSettings, BackgroundFit, BackgroundPreset, BackgroundSettings, BackgroundSource,
         DesktopWidget, LanguagePreference, OnboardingPreferences, OnboardingStatus, PomodoroAction,
-        PomodoroMode, PomodoroState, StarterLayout, ThemePreference, WallpaperTemplate, WidgetKind,
-        WidgetLayout,
+        PomodoroCompletion, PomodoroMode, PomodoroPreferences, PomodoroState, StarterLayout,
+        ThemePreference, WallpaperTemplate, WidgetKind, WidgetLayout,
     },
 };
 
@@ -127,6 +127,17 @@ impl AppStore {
                      ends_at INTEGER,
                      FOREIGN KEY (widget_id) REFERENCES desktop_widgets(id) ON DELETE CASCADE
                  );
+
+                 CREATE TABLE IF NOT EXISTS pomodoro_preferences (
+                     id INTEGER PRIMARY KEY CHECK (id = 1),
+                     notifications_enabled INTEGER NOT NULL DEFAULT 1 CHECK (notifications_enabled IN (0, 1)),
+                     sound_enabled INTEGER NOT NULL DEFAULT 1 CHECK (sound_enabled IN (0, 1)),
+                     sound_volume INTEGER NOT NULL DEFAULT 70 CHECK (sound_volume BETWEEN 0 AND 100)
+                 );
+
+                 INSERT OR IGNORE INTO pomodoro_preferences
+                     (id, notifications_enabled, sound_enabled, sound_volume)
+                 VALUES (1, 1, 1, 70);
 
                  CREATE TABLE IF NOT EXISTS app_meta (
                      key TEXT PRIMARY KEY,
@@ -840,6 +851,121 @@ impl AppStore {
         };
         write_pomodoro_state(&connection, &state)?;
         Ok(state)
+    }
+
+    pub fn get_pomodoro_preferences(&self) -> Result<PomodoroPreferences, String> {
+        let connection = self.lock_connection()?;
+        connection
+            .query_row(
+                "SELECT notifications_enabled, sound_enabled, sound_volume
+                 FROM pomodoro_preferences WHERE id = 1",
+                [],
+                |row| {
+                    Ok(PomodoroPreferences {
+                        notifications_enabled: row.get(0)?,
+                        sound_enabled: row.get(1)?,
+                        sound_volume: row.get(2)?,
+                    })
+                },
+            )
+            .map_err(database_error)
+    }
+
+    pub fn update_pomodoro_preferences(
+        &self,
+        preferences: PomodoroPreferences,
+    ) -> Result<PomodoroPreferences, String> {
+        let preferences = preferences.validate()?;
+        let connection = self.lock_connection()?;
+        connection
+            .execute(
+                "UPDATE pomodoro_preferences
+                 SET notifications_enabled = ?1, sound_enabled = ?2, sound_volume = ?3
+                 WHERE id = 1",
+                params![
+                    preferences.notifications_enabled,
+                    preferences.sound_enabled,
+                    preferences.sound_volume,
+                ],
+            )
+            .map_err(database_error)?;
+        Ok(preferences)
+    }
+
+    pub fn complete_expired_pomodoros(&self) -> Result<Vec<PomodoroCompletion>, String> {
+        let now = unix_timestamp()?;
+        let mut connection = self.lock_connection()?;
+        let transaction = connection.transaction().map_err(database_error)?;
+        let mut expired = {
+            let mut statement = transaction
+                .prepare(
+                    "SELECT widget_id, mode, work_minutes, break_minutes, remaining_seconds,
+                            running, ends_at
+                     FROM pomodoro_states
+                     WHERE running = 1 AND ends_at IS NOT NULL AND ends_at <= ?1",
+                )
+                .map_err(database_error)?;
+            statement
+                .query_map([now], |row| {
+                    let mode_value: String = row.get(1)?;
+                    let mode =
+                        PomodoroMode::from_database_value(&mode_value).map_err(|message| {
+                            rusqlite::Error::FromSqlConversionFailure(
+                                1,
+                                rusqlite::types::Type::Text,
+                                std::io::Error::new(std::io::ErrorKind::InvalidData, message)
+                                    .into(),
+                            )
+                        })?;
+                    Ok(PomodoroState {
+                        widget_id: row.get(0)?,
+                        mode,
+                        work_minutes: row.get(2)?,
+                        break_minutes: row.get(3)?,
+                        remaining_seconds: row.get(4)?,
+                        running: row.get(5)?,
+                        ends_at: row.get(6)?,
+                    })
+                })
+                .map_err(database_error)?
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(database_error)?
+        };
+        let mut completions = Vec::with_capacity(expired.len());
+        for state in &mut expired {
+            let completed_mode = state.mode;
+            let expected_ends_at = state.ends_at;
+            state.mode = if state.mode == PomodoroMode::Work {
+                PomodoroMode::Break
+            } else {
+                PomodoroMode::Work
+            };
+            state.remaining_seconds = mode_duration(state);
+            state.running = false;
+            state.ends_at = None;
+            let changed = transaction
+                .execute(
+                    "UPDATE pomodoro_states
+                     SET mode = ?1, remaining_seconds = ?2, running = 0, ends_at = NULL
+                     WHERE widget_id = ?3 AND running = 1 AND ends_at = ?4",
+                    params![
+                        state.mode.as_database_value(),
+                        state.remaining_seconds,
+                        state.widget_id,
+                        expected_ends_at,
+                    ],
+                )
+                .map_err(database_error)?;
+            if changed == 1 {
+                completions.push(PomodoroCompletion {
+                    widget_id: state.widget_id,
+                    completed_mode,
+                    state: state.clone(),
+                });
+            }
+        }
+        transaction.commit().map_err(database_error)?;
+        Ok(completions)
     }
 
     fn lock_connection(&self) -> Result<std::sync::MutexGuard<'_, Connection>, String> {
@@ -1924,6 +2050,62 @@ mod tests {
         let duplicate_state = store.get_pomodoro_state(duplicate.id).unwrap();
         assert_eq!(duplicate_state.work_minutes, 50);
         assert_eq!(duplicate_state.break_minutes, 10);
+    }
+
+    #[test]
+    fn completes_each_expired_pomodoro_exactly_once() {
+        let store = AppStore::in_memory().unwrap();
+        let widget = store
+            .add_desktop_widget(None, WidgetKind::Pomodoro)
+            .unwrap();
+        store.configure_pomodoro(widget.id, 25, 7).unwrap();
+        {
+            let connection = store.lock_connection().unwrap();
+            connection
+                .execute(
+                    "UPDATE pomodoro_states SET running = 1, ends_at = 0 WHERE widget_id = ?1",
+                    [widget.id],
+                )
+                .unwrap();
+        }
+
+        let completions = store.complete_expired_pomodoros().unwrap();
+        assert_eq!(completions.len(), 1);
+        assert_eq!(completions[0].completed_mode, PomodoroMode::Work);
+        assert_eq!(completions[0].state.mode, PomodoroMode::Break);
+        assert_eq!(completions[0].state.remaining_seconds, 420);
+        assert!(!completions[0].state.running);
+        assert!(store.complete_expired_pomodoros().unwrap().is_empty());
+    }
+
+    #[test]
+    fn persists_and_validates_pomodoro_alert_preferences() {
+        let store = AppStore::in_memory().unwrap();
+        assert_eq!(
+            store.get_pomodoro_preferences().unwrap(),
+            PomodoroPreferences {
+                notifications_enabled: true,
+                sound_enabled: true,
+                sound_volume: 70,
+            }
+        );
+        let updated = store
+            .update_pomodoro_preferences(PomodoroPreferences {
+                notifications_enabled: false,
+                sound_enabled: true,
+                sound_volume: 35,
+            })
+            .unwrap();
+        assert_eq!(store.get_pomodoro_preferences().unwrap(), updated);
+        assert!(
+            store
+                .update_pomodoro_preferences(PomodoroPreferences {
+                    notifications_enabled: true,
+                    sound_enabled: true,
+                    sound_volume: 101,
+                })
+                .is_err()
+        );
     }
 
     #[test]

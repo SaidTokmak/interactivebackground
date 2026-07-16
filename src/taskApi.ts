@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { AppSettings, BackgroundSettings, DesktopHostStatus, DesktopWidget, MonitorInfo, OnboardingPreferences, OnboardingStatus, PomodoroAction, PomodoroState, Task, TaskStatus, WallpaperTemplate, WidgetKind, WidgetLayout } from "./types";
+import type { AppSettings, BackgroundSettings, DesktopHostStatus, DesktopWidget, MonitorInfo, OnboardingPreferences, OnboardingStatus, PomodoroAction, PomodoroPreferences, PomodoroState, Task, TaskStatus, WallpaperTemplate, WidgetKind, WidgetLayout } from "./types";
 
 let browserTasks: Task[] = [
   { id: 1, title: "Rust ownership notlarını bitir", status: "done", scheduledFor: "09:30" },
@@ -262,6 +262,17 @@ export async function configurePomodoro(widgetId: number, workMinutes: number, b
   return { ...state };
 }
 
+export async function getPomodoroPreferences(): Promise<PomodoroPreferences> {
+  if (isTauriRuntime()) return invoke<PomodoroPreferences>("get_pomodoro_preferences");
+  return { ...browserPomodoroPreferences };
+}
+
+export async function updatePomodoroPreferences(preferences: PomodoroPreferences): Promise<PomodoroPreferences> {
+  if (isTauriRuntime()) return invoke<PomodoroPreferences>("update_pomodoro_preferences", { preferences });
+  browserPomodoroPreferences = { ...preferences };
+  return { ...browserPomodoroPreferences };
+}
+
 let browserSettings: AppSettings = {
   template: "focus",
   opacity: 82,
@@ -278,6 +289,11 @@ const browserBackgrounds = new Map<string, BackgroundSettings>();
 const browserWidgetLayouts = new Map<string, WidgetLayout>();
 let browserWidgets: DesktopWidget[] = [defaultDesktopWidget(null, "focus", 1, 0)];
 const browserPomodoros = new Map<number, PomodoroState>();
+let browserPomodoroPreferences: PomodoroPreferences = {
+  notificationsEnabled: true,
+  soundEnabled: true,
+  soundVolume: 70,
+};
 
 function defaultBackground(monitorId: string | null): BackgroundSettings {
   return {

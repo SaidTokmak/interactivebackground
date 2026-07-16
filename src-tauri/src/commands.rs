@@ -14,8 +14,8 @@ use crate::{
     monitors::MonitorInfo,
     settings::{
         AppSettings, BackgroundSettings, BackgroundSource, DesktopWidget, OnboardingPreferences,
-        OnboardingStatus, PomodoroAction, PomodoroState, WallpaperTemplate, WidgetKind,
-        WidgetLayout,
+        OnboardingStatus, PomodoroAction, PomodoroPreferences, PomodoroState, WallpaperTemplate,
+        WidgetKind, WidgetLayout,
     },
     store::AppStore,
 };
@@ -358,6 +358,24 @@ pub fn configure_pomodoro(
     let state = store.configure_pomodoro(widget_id, work_minutes, break_minutes)?;
     notify_pomodoro_change(&app);
     Ok(state)
+}
+
+#[tauri::command]
+pub fn get_pomodoro_preferences(store: State<'_, AppStore>) -> Result<PomodoroPreferences, String> {
+    store.get_pomodoro_preferences()
+}
+
+#[tauri::command]
+pub fn update_pomodoro_preferences(
+    preferences: PomodoroPreferences,
+    store: State<'_, AppStore>,
+    app: AppHandle,
+) -> Result<PomodoroPreferences, String> {
+    let preferences = store.update_pomodoro_preferences(preferences)?;
+    if let Err(error) = app.emit("pomodoro-preferences-changed", preferences) {
+        eprintln!("pomodoro-preferences-changed olayı yayınlanamadı: {error}");
+    }
+    Ok(preferences)
 }
 
 fn import_background_image_to(source: &Path, backgrounds: &Path) -> Result<PathBuf, String> {

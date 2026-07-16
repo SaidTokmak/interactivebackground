@@ -15,7 +15,7 @@ export function WallpaperWindow() {
   const { tasks, error, toggleTask, moveTask } = useTasks();
   const { settings, settingsError, saveSettings } = useSettings();
   const { background, backgroundError } = useBackgroundSettings(settings.monitorId);
-  const { widgets, pomodoros, widgetError, saveWidget, controlPomodoro } = useDesktopWidgets(settings.monitorId, settings.language);
+  const { widgets, pomodoros, widgetError, saveWidget, controlPomodoro } = useDesktopWidgets(settings.monitorId);
   const { monitors } = useMonitors();
   const { gridSize, setGridSize, gridSizes } = useLayoutGrid();
   const selectedMonitor = monitors.find((monitor) => monitor.id === settings.monitorId)

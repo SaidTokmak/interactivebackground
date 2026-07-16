@@ -4,6 +4,7 @@ mod desktop_host;
 mod desktop_integration;
 mod model;
 mod monitors;
+mod pomodoro_service;
 mod settings;
 mod store;
 
@@ -58,6 +59,7 @@ pub fn run() {
             let settings = store.get_settings().map_err(std::io::Error::other)?;
             let auto_calm_minutes = settings.auto_calm_minutes;
             app.manage(store);
+            pomodoro_service::start(app.handle().clone());
             let desktop_host = DesktopHostState::default();
             desktop_host.configure_auto_calm(auto_calm_minutes);
             app.manage(desktop_host);
@@ -124,6 +126,8 @@ pub fn run() {
             commands::get_pomodoro_state,
             commands::update_pomodoro,
             commands::configure_pomodoro,
+            commands::get_pomodoro_preferences,
+            commands::update_pomodoro_preferences,
             commands::list_monitors,
             commands::show_wallpaper,
             commands::hide_wallpaper,

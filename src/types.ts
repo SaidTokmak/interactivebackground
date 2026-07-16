@@ -64,6 +64,18 @@ export type PomodoroState = {
   endsAt: number | null;
 };
 
+export type PomodoroPreferences = {
+  notificationsEnabled: boolean;
+  soundEnabled: boolean;
+  soundVolume: number;
+};
+
+export type PomodoroCompletion = {
+  widgetId: number;
+  completedMode: PomodoroMode;
+  state: PomodoroState;
+};
+
 export type AppSettings = {
   template: WallpaperTemplate;
   opacity: number;

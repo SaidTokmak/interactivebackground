@@ -154,6 +154,31 @@ pub struct PomodoroState {
     pub ends_at: Option<i64>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PomodoroPreferences {
+    pub notifications_enabled: bool,
+    pub sound_enabled: bool,
+    pub sound_volume: u8,
+}
+
+impl PomodoroPreferences {
+    pub fn validate(self) -> Result<Self, String> {
+        if self.sound_volume > 100 {
+            return Err("Pomodoro ses seviyesi 0 ile 100 arasında olmalıdır.".into());
+        }
+        Ok(self)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PomodoroCompletion {
+    pub widget_id: i64,
+    pub completed_mode: PomodoroMode,
+    pub state: PomodoroState,
+}
+
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
