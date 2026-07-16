@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { BackgroundSettings, DesktopWidget, LanguagePreference, PomodoroAction, PomodoroState, Task, TaskStatus, WidgetKind } from "./types";
@@ -7,6 +7,7 @@ import { useI18n } from "./i18n";
 import type { TranslationKey } from "./i18n/locales/en";
 import { getDailyContent } from "./dailyContent";
 import { isTauriRuntime } from "./taskApi";
+import { DEFAULT_GRID_SIZE, hasWidgetCollision, SURFACE_MARGIN, widgetSizeLimits, type LayoutViewport } from "./widgetLayout";
 
 type Props = {
   tasks: Task[];
@@ -17,6 +18,8 @@ type Props = {
   language: LanguagePreference;
   background: BackgroundSettings;
   actual?: boolean;
+  layoutViewport?: LayoutViewport;
+  gridSize?: number;
   onToggle: (id: number) => void;
   onMove: (id: number, status: TaskStatus) => void;
   onWidgetChange: (widget: DesktopWidget) => void;
@@ -32,15 +35,18 @@ type ActiveInteraction = {
   startY: number;
   initial: DesktopWidget;
   latest: DesktopWidget;
+  lastValid: DesktopWidget;
+  valid: boolean;
   bounds: DOMRect;
 };
 
-export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity, language, background, actual = false, onToggle, onMove, onWidgetChange, onPomodoroAction }: Props) {
+export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity, language, background, actual = false, layoutViewport, gridSize = DEFAULT_GRID_SIZE, onToggle, onMove, onWidgetChange, onPomodoroAction }: Props) {
   const { t, formatDate } = useI18n(language);
   const surfaceRef = useRef<HTMLDivElement>(null);
   const interactionRef = useRef<ActiveInteraction | null>(null);
   const completedPomodorosRef = useRef(new Set<string>());
   const [liveWidgets, setLiveWidgets] = useState(widgets);
+  const [invalidWidgetId, setInvalidWidgetId] = useState<number | null>(null);
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     if (!interactionRef.current) setLiveWidgets(widgets);
@@ -89,6 +95,8 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
       startY: event.clientY,
       initial: widget,
       latest: widget,
+      lastValid: widget,
+      valid: true,
       bounds: surfaceRef.current.getBoundingClientRect(),
     };
   }
@@ -101,9 +109,13 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
       active.mode,
       (event.clientX - active.startX) / active.bounds.width,
       (event.clientY - active.startY) / active.bounds.height,
-      active.bounds,
+      layoutViewport ?? active.bounds,
+      event.altKey ? 0 : gridSize,
     );
     active.latest = next;
+    active.valid = !hasWidgetCollision(next, liveWidgets);
+    if (active.valid) active.lastValid = next;
+    setInvalidWidgetId(active.valid ? null : next.id);
     setLiveWidgets((current) => current.map((widget) => widget.id === next.id ? next : widget));
   }
 
@@ -111,8 +123,29 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
     const active = interactionRef.current;
     if (!active || active.pointerId !== event.pointerId) return;
     interactionRef.current = null;
+    setInvalidWidgetId(null);
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-    onWidgetChange(active.latest);
+    setLiveWidgets((current) => current.map((widget) => widget.id === active.lastValid.id ? active.lastValid : widget));
+    if (active.lastValid !== active.initial) onWidgetChange(active.lastValid);
+  }
+
+  function nudgeWidget(widget: DesktopWidget, event: ReactKeyboardEvent<HTMLElement>) {
+    if (!editMode || widget.locked || !["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const step = event.altKey ? 0.001 : gridSize * (event.shiftKey ? 5 : 1);
+    const deltaX = event.key === "ArrowLeft" ? -step : event.key === "ArrowRight" ? step : 0;
+    const deltaY = event.key === "ArrowUp" ? -step : event.key === "ArrowDown" ? step : 0;
+    const viewport = layoutViewport ?? surfaceRef.current?.getBoundingClientRect();
+    if (!viewport) return;
+    const next = calculateLayout(widget, "move", deltaX, deltaY, viewport, event.altKey ? 0 : gridSize);
+    if (hasWidgetCollision(next, liveWidgets)) {
+      setInvalidWidgetId(widget.id);
+      window.setTimeout(() => setInvalidWidgetId((id) => id === widget.id ? null : id), 180);
+      return;
+    }
+    setLiveWidgets((current) => current.map((item) => item.id === next.id ? next : item));
+    onWidgetChange(next);
   }
 
   function widgetContent(widget: DesktopWidget): ReactNode {
@@ -180,7 +213,11 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
   }
 
   return (
-    <div className={`desktop-preview ${actual ? "actual-surface" : ""}`} ref={surfaceRef}>
+    <div className={`desktop-preview ${actual ? "actual-surface" : ""}`} ref={surfaceRef} style={{
+      "--layout-grid-size": `${gridSize * 100}%`,
+      "--monitor-aspect": layoutViewport ? `${layoutViewport.width} / ${layoutViewport.height}` : "16 / 9",
+      "--monitor-ratio": layoutViewport ? layoutViewport.width / layoutViewport.height : 16 / 9,
+    } as CSSProperties}>
       <div className={`desktop-background preset-${background.preset} ${customImage ? "custom-background" : ""}`} style={backgroundStyle} />
       <div className="desktop-overlay" style={{ backgroundColor: `rgba(5, 8, 18, ${background.overlay / 100})` }} />
       {editMode && liveWidgets.some((widget) => widget.visible && widget.snapToGrid) && <div className="layout-grid" />}
@@ -198,7 +235,7 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
           backgroundColor: `color-mix(in srgb, var(--widget) ${opacity}%, transparent)`,
         } as CSSProperties;
         const taskWidget = widget.kind === "focus" || widget.kind === "kanban";
-        return <section className={`wallpaper-widget widget-${widget.kind} ${actual ? "actual-widget" : ""} ${editMode ? "editing" : ""} ${widget.locked ? "layout-locked" : ""}`} style={style} key={widget.id}>
+        return <section className={`wallpaper-widget widget-${widget.kind} ${actual ? "actual-widget" : ""} ${editMode ? "editing" : ""} ${widget.locked ? "layout-locked" : ""} ${invalidWidgetId === widget.id ? "layout-invalid" : ""}`} style={style} tabIndex={editMode && !widget.locked ? 0 : undefined} onKeyDown={(event) => nudgeWidget(widget, event)} key={widget.id}>
           <div className="widget-header widget-drag-handle" onPointerDown={(event) => beginInteraction(widget, "move", event)} onPointerMove={continueInteraction} onPointerUp={finishInteraction} onPointerCancel={finishInteraction}>
             <div><h3>{widgetTitle(widget.kind, t)}</h3>{taskWidget && <span>{formatDate(now, "long")}</span>}</div>
             {taskWidget && <div className="progress-circle" style={{ "--progress": `${progress * 3.6}deg` } as CSSProperties}><b>{completed}/{tasks.length}</b></div>}
@@ -214,8 +251,8 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
   );
 }
 
-export function calculateLayout(initial: DesktopWidget, mode: InteractionMode, deltaX: number, deltaY: number, bounds: Pick<DOMRect, "width" | "height">): DesktopWidget {
-  const margin = 0.015;
+export function calculateLayout(initial: DesktopWidget, mode: InteractionMode, deltaX: number, deltaY: number, bounds: Pick<DOMRect, "width" | "height">, gridSize = DEFAULT_GRID_SIZE): DesktopWidget {
+  const margin = SURFACE_MARGIN;
   const limits = widgetSizeLimits(initial.kind, bounds);
   let left = initial.x;
   let top = initial.y;
@@ -232,8 +269,8 @@ export function calculateLayout(initial: DesktopWidget, mode: InteractionMode, d
     if (mode.includes("n")) top = clamp(initial.y + deltaY, Math.max(margin, bottom - limits.maxHeight), bottom - limits.minHeight);
     if (mode.includes("s")) bottom = clamp(initial.y + initial.height + deltaY, top + limits.minHeight, Math.min(1 - margin, top + limits.maxHeight));
   }
-  if (initial.snapToGrid) {
-    const grid = 0.025;
+  if (initial.snapToGrid && gridSize > 0) {
+    const grid = gridSize;
     if (mode === "move" || mode.includes("w")) left = snap(left, grid);
     if (mode === "move" || mode.includes("n")) top = snap(top, grid);
     if (mode !== "move" && mode.includes("e")) right = snap(right, grid);
@@ -257,16 +294,6 @@ export function calculateLayout(initial: DesktopWidget, mode: InteractionMode, d
     bottom = clamp(bottom, top + limits.minHeight, Math.min(1 - margin, top + limits.maxHeight));
   }
   return { ...initial, x: round(left), y: round(top), width: round(right - left), height: round(bottom - top) };
-}
-
-function widgetSizeLimits(kind: WidgetKind, bounds: Pick<DOMRect, "width" | "height">) {
-  const values: Record<WidgetKind, [number, number, number, number, number, number]> = {
-    focus: [0.18, 0.20, 0.78, 0.78, 280, 250], kanban: [0.18, 0.20, 0.78, 0.78, 280, 250],
-    pomodoro: [0.18, 0.24, 0.50, 0.62, 230, 220], clock: [0.12, 0.14, 0.46, 0.42, 180, 120], date: [0.16, 0.14, 0.52, 0.42, 200, 120],
-    dailyPoem: [0.20, 0.24, 0.58, 0.66, 270, 230], dailyVerse: [0.22, 0.26, 0.62, 0.70, 290, 250], dailyHadith: [0.22, 0.24, 0.60, 0.64, 290, 230],
-  };
-  const [minWidth, minHeight, maxWidth, maxHeight, minPixelsX, minPixelsY] = values[kind];
-  return { minWidth: Math.min(maxWidth, Math.max(minWidth, minPixelsX / bounds.width)), minHeight: Math.min(maxHeight, Math.max(minHeight, minPixelsY / bounds.height)), maxWidth, maxHeight };
 }
 
 function widgetTitle(kind: WidgetKind, t: (key: TranslationKey) => string) {

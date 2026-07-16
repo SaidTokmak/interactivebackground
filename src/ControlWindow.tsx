@@ -15,6 +15,9 @@ import { WallpaperSurface } from "./WallpaperSurface";
 import appIcon from "./assets/interactivebackground-icon.png";
 import { OnboardingWizard } from "./OnboardingWizard";
 import { UpdateControl } from "./UpdateControl";
+import { useLayoutGrid } from "./useLayoutGrid";
+import { MonitorPreview } from "./MonitorPreview";
+import { monitorLayoutViewport } from "./widgetLayout";
 
 export function ControlWindow() {
   const { tasks, error: taskError, addTask, toggleTask, moveTask, removeTask } = useTasks();
@@ -33,6 +36,7 @@ export function ControlWindow() {
   const [blurDraft, setBlurDraft] = useState(background.blur);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
   const [onboardingCompleted, setOnboardingCompleted] = useState(false);
+  const { gridSize, setGridSize, gridSizes } = useLayoutGrid();
 
   useTheme(settings.theme);
   const { t, formatDate, localizeError } = useI18n(settings.language);
@@ -78,6 +82,10 @@ export function ControlWindow() {
 
   const completed = tasks.filter((task) => task.status === "done").length;
   const progress = tasks.length === 0 ? 0 : Math.round((completed / tasks.length) * 100);
+  const selectedMonitor = monitors.find((monitor) => monitor.id === settings.monitorId)
+    ?? monitors.find((monitor) => monitor.isPrimary)
+    ?? monitors[0];
+  const layoutViewport = selectedMonitor ? monitorLayoutViewport(selectedMonitor) : undefined;
 
   async function submitTask(event: FormEvent) {
     event.preventDefault();
@@ -215,10 +223,19 @@ export function ControlWindow() {
         <section className="preview-area">
           <div className="preview-toolbar">
             <div><p className="eyebrow">{t("preview.live")}</p><h2>{t("preview.desktop")}</h2></div>
-            <span className="widget-count">{t("widgets.count", { count: widgets.length })}</span>
+            <div className="preview-tools">
+              <label>{t("layout.gridDensity")}
+                <select value={gridSize} onChange={(event) => setGridSize(Number(event.target.value))}>
+                  {gridSizes.map((size) => <option value={size} key={size}>{t(size === 0.005 ? "layout.gridFine" : "layout.gridNormal")}</option>)}
+                </select>
+              </label>
+              <span className="widget-count">{t("widgets.count", { count: widgets.length })}</span>
+            </div>
           </div>
 
-          <WallpaperSurface tasks={tasks} widgets={widgets} pomodoros={pomodoros} editMode={settings.editMode} opacity={opacityDraft} language={settings.language} background={{ ...background, overlay: overlayDraft, blur: blurDraft }} onToggle={(id) => void toggleTask(id)} onMove={(id, status) => void moveTask(id, status)} onWidgetChange={(widget) => void saveWidget(widget)} onPomodoroAction={(id, action) => void controlPomodoro(id, action)} />
+          <MonitorPreview viewport={layoutViewport}>
+            <WallpaperSurface tasks={tasks} widgets={widgets} pomodoros={pomodoros} editMode={settings.editMode} opacity={opacityDraft} language={settings.language} background={{ ...background, overlay: overlayDraft, blur: blurDraft }} layoutViewport={layoutViewport} gridSize={gridSize} onToggle={(id) => void toggleTask(id)} onMove={(id, status) => void moveTask(id, status)} onWidgetChange={(widget) => void saveWidget(widget)} onPomodoroAction={(id, action) => void controlPomodoro(id, action)} />
+          </MonitorPreview>
 
           <section className="widget-panel">
             <div className="widget-panel-heading">

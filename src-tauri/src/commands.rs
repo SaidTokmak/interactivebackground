@@ -271,6 +271,23 @@ pub fn update_desktop_widget(
     store: State<'_, AppStore>,
     app: AppHandle,
 ) -> Result<DesktopWidget, String> {
+    let monitors = crate::monitors::list(&app)?;
+    let target = widget
+        .monitor_id
+        .as_deref()
+        .and_then(|id| monitors.iter().find(|monitor| monitor.id == id))
+        .or_else(|| monitors.iter().find(|monitor| monitor.is_primary))
+        .or_else(|| monitors.first())
+        .ok_or_else(|| "Kullanılabilir monitör bulunamadı.".to_string())?;
+    let scale = if target.scale_factor.is_finite() && target.scale_factor > 0.0 {
+        target.scale_factor
+    } else {
+        1.0
+    };
+    widget.validate_for_viewport(
+        f64::from(target.width) / scale,
+        f64::from(target.height) / scale,
+    )?;
     let widget = store.update_desktop_widget(widget)?;
     notify_desktop_widgets_change(&app);
     Ok(widget)

@@ -282,26 +282,38 @@ impl WidgetKind {
 
     pub fn default_frame(self) -> (f64, f64, f64, f64) {
         match self {
-            Self::Focus => (0.62, 0.16, 0.34, 0.56),
-            Self::Kanban => (0.52, 0.16, 0.44, 0.54),
-            Self::Pomodoro => (0.05, 0.12, 0.25, 0.34),
-            Self::Clock => (0.05, 0.54, 0.22, 0.20),
-            Self::Date => (0.30, 0.72, 0.25, 0.18),
-            Self::DailyPoem => (0.28, 0.08, 0.30, 0.34),
-            Self::DailyVerse => (0.24, 0.48, 0.32, 0.34),
-            Self::DailyHadith => (0.03, 0.58, 0.28, 0.30),
+            Self::Focus => (0.66, 0.16, 0.28, 0.44),
+            Self::Kanban => (0.58, 0.16, 0.36, 0.44),
+            Self::Pomodoro => (0.05, 0.12, 0.22, 0.26),
+            Self::Clock => (0.05, 0.50, 0.17, 0.14),
+            Self::Date => (0.28, 0.72, 0.19, 0.13),
+            Self::DailyPoem => (0.28, 0.08, 0.25, 0.28),
+            Self::DailyVerse => (0.24, 0.48, 0.27, 0.30),
+            Self::DailyHadith => (0.03, 0.62, 0.27, 0.28),
         }
     }
 
     pub fn size_limits(self) -> ((f64, f64), (f64, f64)) {
         match self {
-            Self::Focus | Self::Kanban => ((0.18, 0.20), (0.78, 0.78)),
-            Self::Pomodoro => ((0.18, 0.24), (0.50, 0.62)),
-            Self::Clock => ((0.12, 0.14), (0.46, 0.42)),
-            Self::Date => ((0.16, 0.14), (0.52, 0.42)),
-            Self::DailyPoem => ((0.20, 0.24), (0.58, 0.66)),
-            Self::DailyVerse => ((0.22, 0.26), (0.62, 0.70)),
-            Self::DailyHadith => ((0.22, 0.24), (0.60, 0.64)),
+            Self::Focus | Self::Kanban => ((0.10, 0.14), (0.78, 0.78)),
+            Self::Pomodoro => ((0.08, 0.12), (0.50, 0.62)),
+            Self::Clock => ((0.06, 0.08), (0.46, 0.42)),
+            Self::Date => ((0.07, 0.08), (0.52, 0.42)),
+            Self::DailyPoem => ((0.10, 0.12), (0.58, 0.66)),
+            Self::DailyVerse => ((0.11, 0.13), (0.62, 0.70)),
+            Self::DailyHadith => ((0.11, 0.12), (0.60, 0.64)),
+        }
+    }
+
+    pub fn minimum_pixel_size(self) -> (f64, f64) {
+        match self {
+            Self::Focus | Self::Kanban => (240.0, 200.0),
+            Self::Pomodoro => (190.0, 170.0),
+            Self::Clock => (140.0, 95.0),
+            Self::Date => (160.0, 95.0),
+            Self::DailyPoem => (215.0, 180.0),
+            Self::DailyVerse => (230.0, 190.0),
+            Self::DailyHadith => (230.0, 180.0),
         }
     }
 }
@@ -348,6 +360,24 @@ impl DesktopWidget {
             return Err("Widget yerleşimi görünür ekran sınırları içinde olmalıdır.".into());
         }
         Ok(self)
+    }
+
+    pub fn validate_for_viewport(
+        &self,
+        viewport_width: f64,
+        viewport_height: f64,
+    ) -> Result<(), String> {
+        if viewport_width <= 0.0 || viewport_height <= 0.0 {
+            return Err("Monitör ölçüsü geçersiz.".into());
+        }
+        let ((base_width, base_height), _) = self.kind.size_limits();
+        let (pixel_width, pixel_height) = self.kind.minimum_pixel_size();
+        let min_width = base_width.max(pixel_width / viewport_width);
+        let min_height = base_height.max(pixel_height / viewport_height);
+        if self.width + f64::EPSILON < min_width || self.height + f64::EPSILON < min_height {
+            return Err("Widget boyutu hedef monitör için çok küçük.".into());
+        }
+        Ok(())
     }
 }
 

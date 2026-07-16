@@ -175,6 +175,8 @@ kapanmaz, siyah pencere kalmaz ve hedef monitör değişmez.
 
 ### 9.2 — Ortak ölçekli preview ve yerleşim motoru v2
 
+Durum: Tamamlandı — 16 Temmuz 2026
+
 - Yönetim preview'su seçilen fiziksel monitörün gerçek en-boy oranını koruyan
   letterbox canvas kullanacak. Preview ile wallpaper aynı normalize koordinat,
   minimum boyut ve çarpışma kurallarını paylaşacak.
@@ -194,6 +196,17 @@ kapanmaz, siyah pencere kalmaz ve hedef monitör değişmez.
 Kabul ölçütü: Preview ile gerçek ekranın yerleşimi aynı görünür; farklı DPI ve
 en-boy oranlarında widget'lar çakışmaz, görünür alanın dışına çıkmaz ve kullanıcı
 ince grid üzerinde hassas yerleşim yapabilir.
+
+Uygulama notu: Preview, seçili monitörün fiziksel en-boy oranını koruyan ve DPI
+ölçeğinden türetilen efektif WebView yüzeyinde render edilip tek katsayıyla
+letterbox alanına küçültülür; böylece kart içeriği ve tipografi de geometriyle
+aynı oranda ölçeklenir. Yüzde 0,5 ve yüzde 1 grid, Alt ile geçici
+serbest hareket ve ok tuşlarıyla hassas nudge ortak hesaplayıcıyı kullanır.
+Çakışan sürükleme kırmızı hayalet olarak gösterilir ve son geçerli konuma döner.
+Rust/SQLite katmanı aynı çakışma, ekran sınırı ve hedef monitöre göre minimum
+efektif boyut kurallarını tekrar doğrular; yeni ve çoğaltılan widget en yakın boş
+konuma yerleştirilir. Mevcut kullanıcı yerleşimleri migration ile zorla
+değiştirilmez.
 
 ### 9.3 — Widget yoğunluğu ve düzenleme affordance'ları
 
@@ -332,6 +345,6 @@ korunur ve beta checklist'in bütün kritik maddeleri geçer.
 
 ## Önerilen bir sonraki çalışma
 
-Faz 9.2 ile devam edilmeli; yönetim preview'su ile gerçek wallpaper aynı
-yerleşim motoru ve koordinat dönüşümünü kullanmalıdır. Bu ortak temel kurulmadan
-görsel panel yenilemesine veya Widget Store'a geçilmemelidir.
+Faz 9.3 ile devam edilmeli; ortak yerleşim motorunun üstünde widget iç boşlukları,
+sürükleme rayı, resize tutamakları ve etkileşim açıklamaları sadeleştirilmelidir.
+Ardından Faz 9.4 yönetim paneli bilgi mimarisini yenilemelidir.

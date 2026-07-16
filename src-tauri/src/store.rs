@@ -411,12 +411,14 @@ impl AppStore {
             )
             .map_err(database_error)?;
         for (sort_order, kind) in widget_kinds.iter().copied().enumerate() {
-            let mut widget = DesktopWidget::defaults_for(
+            let widget = DesktopWidget::defaults_for(
                 preferences.monitor_id.clone(),
                 kind,
                 sort_order as i64,
             )
             .validate()?;
+            let mut widget =
+                place_widget_without_collision(&transaction, &monitor_key, widget, None)?;
             insert_desktop_widget(&transaction, &monitor_key, &widget)?;
             widget.id = transaction.last_insert_rowid();
             ensure_pomodoro_state(&transaction, &widget)?;
@@ -600,7 +602,8 @@ impl AppStore {
                 |row| row.get(0),
             )
             .map_err(database_error)?;
-        let mut widget = DesktopWidget::defaults_for(monitor_id, kind, sort_order).validate()?;
+        let widget = DesktopWidget::defaults_for(monitor_id, kind, sort_order).validate()?;
+        let mut widget = place_widget_without_collision(&connection, &monitor_key, widget, None)?;
         insert_desktop_widget(&connection, &monitor_key, &widget)?;
         widget.id = connection.last_insert_rowid();
         ensure_pomodoro_state(&connection, &widget)?;
@@ -613,6 +616,24 @@ impl AppStore {
             return Err("Widget kimliği geçersiz.".into());
         }
         let connection = self.lock_connection()?;
+        let current = find_desktop_widget(&connection, widget.id)?;
+        let layout_changed = current.monitor_id != widget.monitor_id
+            || current.visible != widget.visible
+            || (current.x - widget.x).abs() > f64::EPSILON
+            || (current.y - widget.y).abs() > f64::EPSILON
+            || (current.width - widget.width).abs() > f64::EPSILON
+            || (current.height - widget.height).abs() > f64::EPSILON;
+        if layout_changed
+            && widget.visible
+            && widget_collides(
+                &connection,
+                background_monitor_key(widget.monitor_id.as_deref()),
+                &widget,
+                Some(widget.id),
+            )?
+        {
+            return Err("Widget başka bir widget ile çakışamaz.".into());
+        }
         let changed = connection
             .execute(
                 "UPDATE desktop_widgets SET
@@ -667,9 +688,10 @@ impl AppStore {
         duplicate.id = 0;
         duplicate.sort_order = sort_order;
         duplicate.locked = false;
-        duplicate.x = (duplicate.x + 0.025).min(0.985 - duplicate.width);
-        duplicate.y = (duplicate.y + 0.025).min(0.985 - duplicate.height);
-        duplicate = duplicate.validate()?;
+        duplicate.x = (duplicate.x + 0.01).min(0.985 - duplicate.width);
+        duplicate.y = (duplicate.y + 0.01).min(0.985 - duplicate.height);
+        duplicate =
+            place_widget_without_collision(&connection, &monitor_key, duplicate.validate()?, None)?;
         insert_desktop_widget(&connection, &monitor_key, &duplicate)?;
         duplicate.id = connection.last_insert_rowid();
         ensure_pomodoro_state(&connection, &duplicate)?;
@@ -1024,6 +1046,100 @@ fn find_desktop_widget(connection: &Connection, id: i64) -> Result<DesktopWidget
         Some(monitor_key)
     };
     Ok(widget)
+}
+
+const WIDGET_LAYOUT_MARGIN: f64 = 0.015;
+const WIDGET_LAYOUT_GRID: f64 = 0.01;
+const WIDGET_LAYOUT_GAP: f64 = 0.005;
+type WidgetFrame = (i64, f64, f64, f64, f64);
+
+fn visible_widget_frames(
+    connection: &Connection,
+    monitor_key: &str,
+    excluded_id: Option<i64>,
+) -> Result<Vec<WidgetFrame>, String> {
+    let mut statement = connection
+        .prepare(
+            "SELECT id, x, y, width, height FROM desktop_widgets
+             WHERE monitor_key = ?1 AND visible = 1 AND (?2 IS NULL OR id != ?2)",
+        )
+        .map_err(database_error)?;
+    statement
+        .query_map(params![monitor_key, excluded_id], |row| {
+            Ok((
+                row.get::<_, i64>(0)?,
+                row.get::<_, f64>(1)?,
+                row.get::<_, f64>(2)?,
+                row.get::<_, f64>(3)?,
+                row.get::<_, f64>(4)?,
+            ))
+        })
+        .map_err(database_error)?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(database_error)
+}
+
+fn collides_with_frames(widget: &DesktopWidget, frames: &[WidgetFrame]) -> bool {
+    frames.iter().any(|&(_, x, y, width, height)| {
+        widget.x < x + width + WIDGET_LAYOUT_GAP
+            && widget.x + widget.width + WIDGET_LAYOUT_GAP > x
+            && widget.y < y + height + WIDGET_LAYOUT_GAP
+            && widget.y + widget.height + WIDGET_LAYOUT_GAP > y
+    })
+}
+
+fn widget_collides(
+    connection: &Connection,
+    monitor_key: &str,
+    widget: &DesktopWidget,
+    excluded_id: Option<i64>,
+) -> Result<bool, String> {
+    Ok(collides_with_frames(
+        widget,
+        &visible_widget_frames(connection, monitor_key, excluded_id)?,
+    ))
+}
+
+fn place_widget_without_collision(
+    connection: &Connection,
+    monitor_key: &str,
+    widget: DesktopWidget,
+    excluded_id: Option<i64>,
+) -> Result<DesktopWidget, String> {
+    let frames = visible_widget_frames(connection, monitor_key, excluded_id)?;
+    if !widget.visible || !collides_with_frames(&widget, &frames) {
+        return Ok(widget);
+    }
+
+    let preferred_x = widget.x;
+    let preferred_y = widget.y;
+    let max_x = 1.0 - WIDGET_LAYOUT_MARGIN - widget.width;
+    let max_y = 1.0 - WIDGET_LAYOUT_MARGIN - widget.height;
+    let columns = ((max_x - WIDGET_LAYOUT_MARGIN) / WIDGET_LAYOUT_GRID).floor() as usize;
+    let rows = ((max_y - WIDGET_LAYOUT_MARGIN) / WIDGET_LAYOUT_GRID).floor() as usize;
+    let mut best: Option<(f64, DesktopWidget)> = None;
+
+    for row in 0..=rows {
+        for column in 0..=columns {
+            let mut candidate = widget.clone();
+            candidate.x = (WIDGET_LAYOUT_MARGIN + column as f64 * WIDGET_LAYOUT_GRID).min(max_x);
+            candidate.y = (WIDGET_LAYOUT_MARGIN + row as f64 * WIDGET_LAYOUT_GRID).min(max_y);
+            if collides_with_frames(&candidate, &frames) {
+                continue;
+            }
+            let distance =
+                (candidate.x - preferred_x).powi(2) + (candidate.y - preferred_y).powi(2);
+            if best
+                .as_ref()
+                .is_none_or(|(best_distance, _)| distance < *best_distance)
+            {
+                best = Some((distance, candidate));
+            }
+        }
+    }
+
+    best.map(|(_, candidate)| candidate)
+        .ok_or_else(|| "Bu widget için yeterli boş alan bulunamadı.".to_string())
 }
 
 fn insert_desktop_widget(
@@ -1701,6 +1817,60 @@ mod tests {
                 .len(),
             2
         );
+    }
+
+    #[test]
+    fn prevents_overlapping_widgets_and_places_new_widgets_in_free_space() {
+        let store = AppStore::in_memory().unwrap();
+        let first = store.list_desktop_widgets(None).unwrap().remove(0);
+        let second = store.add_desktop_widget(None, WidgetKind::Focus).unwrap();
+        assert!(
+            first.x + first.width + WIDGET_LAYOUT_GAP <= second.x
+                || second.x + second.width + WIDGET_LAYOUT_GAP <= first.x
+                || first.y + first.height + WIDGET_LAYOUT_GAP <= second.y
+                || second.y + second.height + WIDGET_LAYOUT_GAP <= first.y
+        );
+
+        let error = store
+            .update_desktop_widget(DesktopWidget {
+                x: first.x,
+                y: first.y,
+                ..second
+            })
+            .unwrap_err();
+        assert_eq!(error, "Widget başka bir widget ile çakışamaz.");
+
+        let physically_too_small = DesktopWidget {
+            width: 0.18,
+            ..first
+        }
+        .validate()
+        .unwrap();
+        assert_eq!(
+            physically_too_small
+                .validate_for_viewport(1080.0, 1920.0)
+                .unwrap_err(),
+            "Widget boyutu hedef monitör için çok küçük."
+        );
+
+        for kind in [
+            WidgetKind::Focus,
+            WidgetKind::Kanban,
+            WidgetKind::Pomodoro,
+            WidgetKind::Clock,
+            WidgetKind::Date,
+            WidgetKind::DailyPoem,
+            WidgetKind::DailyVerse,
+            WidgetKind::DailyHadith,
+        ] {
+            let default = DesktopWidget::defaults_for(None, kind, 0)
+                .validate()
+                .unwrap();
+            default.validate_for_viewport(1080.0, 1920.0).unwrap();
+            default.validate_for_viewport(1920.0, 1080.0).unwrap();
+            default.validate_for_viewport(864.0, 1536.0).unwrap();
+            default.validate_for_viewport(1536.0, 864.0).unwrap();
+        }
     }
 
     #[test]
