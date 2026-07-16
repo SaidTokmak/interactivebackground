@@ -1,11 +1,14 @@
 {
   "name": "interactivebackground",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0-1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test": "npm run test:frontend",
+    "test:frontend": "tsc -p tsconfig.regression.json && node tests/frontend-regression.test.mjs",
+    "check:bundle": "node scripts/check-bundle-budget.mjs",
     "build:desktop": "tauri build",
     "preview": "vite preview",
     "tauri": "tauri"

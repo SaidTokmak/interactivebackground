@@ -593,6 +593,24 @@ mod tests {
         assert_eq!(closed.mode, "window");
         assert!(!state.wallpaper_is_desired());
     }
+
+    #[test]
+    fn keeps_lifecycle_state_consistent_across_repeated_control_wallpaper_transitions() {
+        let state = DesktopHostState::default();
+        for _ in 0..20 {
+            state.request_wallpaper_visibility(true);
+            assert!(state.wallpaper_is_desired());
+            assert!(!state.wallpaper_is_visible());
+
+            state.confirm_wallpaper_visible();
+            assert!(state.wallpaper_is_visible());
+
+            state.request_wallpaper_visibility(false);
+            assert!(!state.wallpaper_is_desired());
+            assert!(!state.wallpaper_is_visible());
+            assert_eq!(state.status(None).mode, "window");
+        }
+    }
 }
 
 #[cfg(not(target_os = "windows"))]

@@ -384,6 +384,9 @@ Rust testiyle; sekiz kart, açık/koyu kontrast, dummy temizliği ve 1920×1080,
 
 ### 9.9 — Regresyon, performans ve beta kabul turu
 
+Durum: Beta adayı hazır — 17 Temmuz 2026. Kritik native kullanıcı kabul
+senaryolarının gerçek ikinci/4K monitörde işaretlenmesi bekleniyor.
+
 - Pencere yaşam döngüsü, çarpışma, grid, preview dönüşümü, saat ayarları ve
   Pomodoro tamamlanması için Rust/TypeScript testleri.
 - 1080p, 1440p, 4K, farklı DPI, negatif monitör koordinatı ve ikinci monitör
@@ -395,6 +398,17 @@ Rust testiyle; sekiz kart, açık/koyu kontrast, dummy temizliği ve 1920×1080,
 
 Kabul ölçütü: Bildirilen kritik akışlar tekrar üretilemez, mevcut veriler
 korunur ve beta checklist'in bütün kritik maddeleri geçer.
+
+Uygulama notu: Yerleşim ve saat hesapları React yüzeyinden bağımsız test
+edilebilir modüllere ayrıldı. Beş frontend regresyonu 1080p, 1440p, 4K,
+1x/1.25x/1.5x/2x DPI ve negatif koordinatlı ikinci monitör matrisini; grid,
+çarpışma, resize minimumları ve saat seçenekleriyle birlikte doğruluyor. Native
+test paketi pencere görünürlük durumunu 20 ardışık geçişte, Pomodoro'nun tek
+sefer tamamlanmasını ve görev/ayar/özel arka plan/widget/saat/Pomodoro verisini
+birlikte taşıyan eski kullanıcı snapshot'ını kapsıyor. Minified frontend için
+400 KiB JS ve 80 KiB CSS bütçesi eklendi. Windows Installer metinli prerelease
+kimliği kabul etmediğinden beta build 1 paket sürümü `0.2.0-1` olarak üretildi;
+NSIS ile Türkçe ve İngilizce MSI kurucuları temiz release build'den alındı.
 
 ## Ürün kararları ve sınırlar
 
@@ -411,6 +425,6 @@ korunur ve beta checklist'in bütün kritik maddeleri geçer.
 
 ## Önerilen bir sonraki çalışma
 
-Faz 9.9 ile devam edilmeli; pencere yaşam döngüsü, çoklu monitör/DPI,
-migration snapshot, performans ve temiz `v0.2.0-beta` kullanıcı kabul turu tek
-bir regresyon checklist'i üzerinden tamamlanmalıdır.
+`0.2.0-1` beta paketi `docs/BETA_ACCEPTANCE.md` üzerinden gerçek ikinci/4K
+monitörde kullanıcı kabul turuna alınmalı. Kritik manuel maddeler geçince Faz
+9.9 kapatılıp `v0.2.0` kararlı sürüm hazırlığına geçilmelidir.

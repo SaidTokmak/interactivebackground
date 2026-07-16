@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { BackgroundSettings, ClockWidgetSettings, DesktopWidget, LanguagePreference, PomodoroAction, PomodoroState, Task, TaskStatus, WidgetKind } from "./types";
+import type { BackgroundSettings, DesktopWidget, LanguagePreference, PomodoroAction, PomodoroState, Task, TaskStatus, WidgetKind } from "./types";
 import { useI18n } from "./i18n";
 import type { TranslationKey } from "./i18n/locales/en";
 import { getDailyContent } from "./dailyContent";
 import { isTauriRuntime } from "./taskApi";
-import { DEFAULT_GRID_SIZE, hasWidgetCollision, SURFACE_MARGIN, widgetSizeLimits, type LayoutViewport } from "./widgetLayout";
+import { calculateLayout, DEFAULT_GRID_SIZE, hasWidgetCollision, type InteractionMode, type LayoutViewport } from "./widgetLayout";
+import { clockHandAngles, clockZoneLabel, defaultClockSettings, formatClock, formatClockDate } from "./clockFormat";
 import { backgroundPresetTone } from "./backgroundPresets";
 import { BackgroundArtwork } from "./BackgroundArtwork";
 
@@ -26,8 +27,6 @@ type Props = {
   onWidgetChange: (widget: DesktopWidget) => void;
   onPomodoroAction: (widgetId: number, action: PomodoroAction) => void;
 };
-
-type InteractionMode = "move" | "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
 
 type ActiveInteraction = {
   pointerId: number;
@@ -259,51 +258,6 @@ export function WallpaperSurface({ tasks, widgets, pomodoros, editMode, opacity,
   );
 }
 
-export function calculateLayout(initial: DesktopWidget, mode: InteractionMode, deltaX: number, deltaY: number, bounds: Pick<DOMRect, "width" | "height">, gridSize = DEFAULT_GRID_SIZE): DesktopWidget {
-  const margin = SURFACE_MARGIN;
-  const limits = widgetSizeLimits(initial.kind, bounds);
-  let left = initial.x;
-  let top = initial.y;
-  let right = initial.x + initial.width;
-  let bottom = initial.y + initial.height;
-  if (mode === "move") {
-    left = clamp(initial.x + deltaX, margin, 1 - margin - initial.width);
-    top = clamp(initial.y + deltaY, margin, 1 - margin - initial.height);
-    right = left + initial.width;
-    bottom = top + initial.height;
-  } else {
-    if (mode.includes("w")) left = clamp(initial.x + deltaX, Math.max(margin, right - limits.maxWidth), right - limits.minWidth);
-    if (mode.includes("e")) right = clamp(initial.x + initial.width + deltaX, left + limits.minWidth, Math.min(1 - margin, left + limits.maxWidth));
-    if (mode.includes("n")) top = clamp(initial.y + deltaY, Math.max(margin, bottom - limits.maxHeight), bottom - limits.minHeight);
-    if (mode.includes("s")) bottom = clamp(initial.y + initial.height + deltaY, top + limits.minHeight, Math.min(1 - margin, top + limits.maxHeight));
-  }
-  if (initial.snapToGrid && gridSize > 0) {
-    const grid = gridSize;
-    if (mode === "move" || mode.includes("w")) left = snap(left, grid);
-    if (mode === "move" || mode.includes("n")) top = snap(top, grid);
-    if (mode !== "move" && mode.includes("e")) right = snap(right, grid);
-    if (mode !== "move" && mode.includes("s")) bottom = snap(bottom, grid);
-  }
-  const edgeX = 12 / bounds.width;
-  const edgeY = 12 / bounds.height;
-  if (Math.abs(left - margin) <= edgeX) left = margin;
-  if (Math.abs(top - margin) <= edgeY) top = margin;
-  if (Math.abs(1 - margin - right) <= edgeX) right = 1 - margin;
-  if (Math.abs(1 - margin - bottom) <= edgeY) bottom = 1 - margin;
-  if (mode === "move") {
-    left = clamp(left, margin, 1 - margin - initial.width);
-    top = clamp(top, margin, 1 - margin - initial.height);
-    right = left + initial.width;
-    bottom = top + initial.height;
-  } else {
-    left = clamp(left, Math.max(margin, right - limits.maxWidth), right - limits.minWidth);
-    top = clamp(top, Math.max(margin, bottom - limits.maxHeight), bottom - limits.minHeight);
-    right = clamp(right, left + limits.minWidth, Math.min(1 - margin, left + limits.maxWidth));
-    bottom = clamp(bottom, top + limits.minHeight, Math.min(1 - margin, top + limits.maxHeight));
-  }
-  return { ...initial, x: round(left), y: round(top), width: round(right - left), height: round(bottom - top) };
-}
-
 function widgetTitle(kind: WidgetKind, t: (key: TranslationKey) => string) {
   const keys: Record<WidgetKind, TranslationKey> = {
     focus: "widget.focusTitle", kanban: "widget.boardTitle", pomodoro: "widget.pomodoroTitle", clock: "widget.clockTitle", date: "widget.dateTitle",
@@ -320,48 +274,8 @@ function pomodoroRemaining(state: PomodoroState | undefined, now: Date) {
 
 function formatDuration(seconds: number) { return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`; }
 function resolveLocale(language: LanguagePreference) { return language === "system" ? navigator.language : language === "tr" ? "tr-TR" : "en-US"; }
-function defaultClockSettings(): ClockWidgetSettings { return { version: 1, style: "digital", hourFormat: "system", timeZone: null, showSeconds: true, showDate: true, showWeekday: true }; }
-function formatClock(date: Date, language: LanguagePreference, settings: ClockWidgetSettings) {
-  return new Intl.DateTimeFormat(resolveLocale(language), {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: settings.showSeconds ? "2-digit" : undefined,
-    hour12: settings.hourFormat === "system" ? undefined : settings.hourFormat === "hour12",
-    timeZone: settings.timeZone ?? undefined,
-  }).format(date);
-}
-function formatClockDate(date: Date, language: LanguagePreference, settings: ClockWidgetSettings) {
-  if (!settings.showDate && !settings.showWeekday) return "";
-  return new Intl.DateTimeFormat(resolveLocale(language), {
-    day: settings.showDate ? "2-digit" : undefined,
-    month: settings.showDate ? "long" : undefined,
-    year: settings.showDate ? "numeric" : undefined,
-    weekday: settings.showWeekday ? "long" : undefined,
-    timeZone: settings.timeZone ?? undefined,
-  }).format(date);
-}
-function clockZoneLabel(date: Date, language: LanguagePreference, timeZone: string | null) {
-  const parts = new Intl.DateTimeFormat(resolveLocale(language), { timeZone: timeZone ?? undefined, timeZoneName: "short" }).formatToParts(date);
-  return parts.find((part) => part.type === "timeZoneName")?.value ?? timeZone ?? "";
-}
-function clockHandAngles(date: Date, timeZone: string | null) {
-  const values = Object.fromEntries(new Intl.DateTimeFormat("en-US", {
-    timeZone: timeZone ?? undefined,
-    hour: "numeric",
-    minute: "numeric",
-    second: "numeric",
-    hourCycle: "h23",
-  }).formatToParts(date).map((part) => [part.type, part.value]));
-  const hour = Number(values.hour ?? 0);
-  const minute = Number(values.minute ?? 0);
-  const second = Number(values.second ?? 0);
-  return { hour: (hour % 12) * 30 + minute * .5, minute: minute * 6 + second * .1, second: second * 6 };
-}
 async function openExternal(url: string) {
   if (isTauriRuntime()) await openUrl(url);
   else window.open(url, "_blank", "noopener,noreferrer");
 }
-function snap(value: number, grid: number) { return Math.round(value / grid) * grid; }
-function clamp(value: number, minimum: number, maximum: number) { return Math.min(maximum, Math.max(minimum, value)); }
-function round(value: number) { return Math.round(value * 1_000_000) / 1_000_000; }
 function nextStatus(status: TaskStatus): TaskStatus { return status === "todo" ? "inProgress" : status === "inProgress" ? "done" : "todo"; }

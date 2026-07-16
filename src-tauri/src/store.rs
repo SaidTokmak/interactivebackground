@@ -1825,6 +1825,7 @@ fn task_not_found(id: i64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::settings::{ClockHourFormat, ClockStyle};
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
@@ -2087,6 +2088,108 @@ mod tests {
                 .unwrap(),
             arctic
         );
+    }
+
+    #[test]
+    fn preserves_an_existing_user_profile_as_one_migration_snapshot() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                r#"CREATE TABLE tasks (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL,
+                    status TEXT NOT NULL, scheduled_for TEXT, created_at TEXT NOT NULL
+                 );
+                 INSERT INTO tasks VALUES (77, 'Beta verisini koru', 'in_progress', '2026-07-18', '2026-07-17 10:00:00');
+                 CREATE TABLE app_settings (
+                    id INTEGER PRIMARY KEY CHECK (id = 1), template TEXT NOT NULL,
+                    opacity INTEGER NOT NULL, edit_mode INTEGER NOT NULL, monitor_id TEXT,
+                    auto_calm_minutes INTEGER, theme_mode TEXT NOT NULL, language TEXT NOT NULL
+                 );
+                 INSERT INTO app_settings VALUES (1, 'kanban', 74, 1, 'display-two', 10, 'dark', 'tr');
+                 CREATE TABLE monitor_backgrounds (
+                    monitor_key TEXT PRIMARY KEY,
+                    source TEXT NOT NULL CHECK (source IN ('preset', 'custom')),
+                    preset TEXT NOT NULL CHECK (preset IN ('folded_horizon', 'midnight', 'graphite', 'ember')),
+                    custom_path TEXT,
+                    fit TEXT NOT NULL CHECK (fit IN ('cover', 'contain', 'stretch')),
+                    overlay INTEGER NOT NULL CHECK (overlay BETWEEN 0 AND 70),
+                    blur INTEGER NOT NULL CHECK (blur BETWEEN 0 AND 24)
+                 );
+                 INSERT INTO monitor_backgrounds VALUES
+                    ('display-two', 'custom', 'graphite', 'C:\Users\Said\Pictures\calisma.webp', 'contain', 27, 5);
+                 CREATE TABLE desktop_widgets (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT, monitor_key TEXT NOT NULL,
+                    kind TEXT NOT NULL CHECK (kind IN ('focus', 'kanban', 'pomodoro', 'clock', 'date', 'daily_poem', 'daily_verse', 'daily_hadith')),
+                    x REAL NOT NULL, y REAL NOT NULL, width REAL NOT NULL, height REAL NOT NULL,
+                    locked INTEGER NOT NULL, snap_to_grid INTEGER NOT NULL,
+                    visible INTEGER NOT NULL, sort_order INTEGER NOT NULL,
+                    settings_json TEXT NOT NULL DEFAULT '{}'
+                 );
+                 INSERT INTO desktop_widgets VALUES
+                    (91, 'display-two', 'clock', .61, .08, .18, .16, 1, 0, 1, 3,
+                     '{"version":1,"style":"analog","hourFormat":"hour24","timeZone":"Europe/Istanbul","showSeconds":false,"showDate":true,"showWeekday":false}');
+                 INSERT INTO desktop_widgets VALUES
+                    (92, 'display-two', 'pomodoro', .61, .31, .20, .24, 0, 1, 1, 4, '{}');
+                 CREATE TABLE pomodoro_states (
+                    widget_id INTEGER PRIMARY KEY, mode TEXT NOT NULL,
+                    work_minutes INTEGER NOT NULL, break_minutes INTEGER NOT NULL,
+                    remaining_seconds INTEGER NOT NULL, running INTEGER NOT NULL,
+                    ends_at INTEGER,
+                    FOREIGN KEY (widget_id) REFERENCES desktop_widgets(id) ON DELETE CASCADE
+                 );
+                 INSERT INTO pomodoro_states VALUES (92, 'break', 50, 10, 321, 0, NULL);"#,
+            )
+            .unwrap();
+
+        let store = AppStore::from_connection(connection).unwrap();
+
+        let tasks = store.list().unwrap();
+        assert_eq!(tasks.len(), 1);
+        assert_eq!(tasks[0].id, 77);
+        assert_eq!(tasks[0].title, "Beta verisini koru");
+        assert_eq!(tasks[0].status, TaskStatus::InProgress);
+
+        let settings = store.get_settings().unwrap();
+        assert_eq!(settings.template, WallpaperTemplate::Kanban);
+        assert_eq!(settings.opacity, 74);
+        assert!(settings.edit_mode);
+        assert_eq!(settings.monitor_id.as_deref(), Some("display-two"));
+        assert_eq!(settings.auto_calm_minutes, Some(10));
+        assert_eq!(settings.theme, ThemePreference::Dark);
+        assert_eq!(settings.language, LanguagePreference::Tr);
+
+        let background = store
+            .get_background_settings(Some("display-two".into()))
+            .unwrap();
+        assert_eq!(background.source, BackgroundSource::Custom);
+        assert_eq!(background.preset, BackgroundPreset::Graphite);
+        assert_eq!(
+            background.custom_path.as_deref(),
+            Some("C:\\Users\\Said\\Pictures\\calisma.webp")
+        );
+        assert_eq!(background.fit, BackgroundFit::Contain);
+        assert_eq!(background.overlay, 27);
+        assert_eq!(background.blur, 5);
+
+        let widgets = store
+            .list_desktop_widgets(Some("display-two".into()))
+            .unwrap();
+        assert_eq!(widgets.len(), 2);
+        assert_eq!((widgets[0].x, widgets[0].y), (0.61, 0.08));
+        assert!(widgets[0].locked);
+        assert!(!widgets[0].snap_to_grid);
+        let clock = widgets[0].clock_settings.as_ref().unwrap();
+        assert_eq!(clock.style, ClockStyle::Analog);
+        assert_eq!(clock.hour_format, ClockHourFormat::Hour24);
+        assert_eq!(clock.time_zone.as_deref(), Some("Europe/Istanbul"));
+        assert!(!clock.show_seconds);
+
+        let pomodoro = store.get_pomodoro_state(92).unwrap();
+        assert_eq!(pomodoro.mode, PomodoroMode::Break);
+        assert_eq!(pomodoro.work_minutes, 50);
+        assert_eq!(pomodoro.break_minutes, 10);
+        assert_eq!(pomodoro.remaining_seconds, 321);
+        assert!(!pomodoro.running);
     }
 
     #[test]

@@ -10,6 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+.regression-dist
 *.local
 src-tauri/tauri.release.conf.json
 

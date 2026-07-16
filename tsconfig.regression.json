@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "allowImportingTsExtensions": false,
+    "isolatedModules": false,
+    "outDir": ".regression-dist",
+    "rootDir": "src"
+  },
+  "include": ["src/widgetLayout.ts", "src/clockFormat.ts", "src/types.ts"],
+  "references": []
+}
