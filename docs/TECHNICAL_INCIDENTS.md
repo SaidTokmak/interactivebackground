@@ -566,3 +566,37 @@ ile NSIS/MSI ve `latest.json` yayınlar, son olarak bütün installer ve imzalar
 için `SHA256SUMS.txt` yükler. Özel anahtar, parola veya sertifika repository'ye
 yazılmaz. Windows publisher sertifikası henüz temin edilmediğinden bu kısım
 hazır fakat production credential bekleyen durumdadır.
+
+## BUG-004 — Yönetim paneline dönüşten sonra wallpaper'ın tekrar açılamaması
+
+- Tarih: 16 Temmuz 2026
+- Durum: Çözüldü; gerçek WorkerW üzerinde 20 döngülük smoke test ile doğrulandı
+- Final rapora dahil et: Evet
+
+Wallpaper üzerindeki `Yönetim paneline dön` düğmesi `hide_wallpaper` IPC
+komutunu kaynak wallpaper WebView'inden çağırıyordu. Rust komutu yönetim
+penceresini gösterdikten hemen sonra aynı kaynak `WebviewWindow` nesnesini
+senkron `destroy` ediyordu. Tauri invoke cevabı henüz WebView'e dönemeden pencere
+yok edildiği ve pencere etiketi event loop tarafından kayıttan çıkarılmadan yeni
+açılış yapılabildiği için sonraki `show_wallpaper` çağrısı artık geçersiz olan
+`wallpaper` kaydını görebiliyordu. Sonuç, yönetim ekranı açık görünse bile
+wallpaper'ın aynı süreçte yeniden oluşturulamamasıydı.
+
+Kapanış iki aşamaya ayrıldı. Komut önce native pencereyi görünmez yapıyor,
+WorkerW parent bağlantısını geri alıyor, etkileşim modunu kapatıyor ve native
+durumu `visible: false` olarak bütün pencerelere yayınlıyor. Gerçek `destroy`, IPC
+cevabının dönmesi için 250 ms sonra Tauri ana thread'ine kuyruğa alınıyor. Bu
+sürede yeni açma isteği gelirse ayrı `wallpaper_desired` bayrağı gecikmiş destroy
+işlemini iptal ediyor; böylece hızlı çift geçiş yeni açılan pencereyi yanlışlıkla
+kapatmıyor. Gerçek görünürlük ile WorkerW/interaction/fallback modu artık ayrı
+alanlar; yönetim düğmesi eski `mode != window` çıkarımı yerine doğrudan native
+`visible` değerini kullanıyor.
+
+Native pencere işlemlerini yardımcı thread'de çalıştıran ilk smoke test sürücüsü
+Tauri event loop'unu bekleyerek timeout verdi. Test sürücüsü ve gecikmeli destroy
+ana thread kuyruğuna taşındı. Yalnızca debug build'de çalışan yaşam döngüsü testi
+seçili dikey ikinci monitörde, negatif Y koordinatı ve 1080×1920 fiziksel ölçüyü
+koruyarak 20 kez şu zinciri tamamladı: oluştur → konumlandır → WorkerW'ye bağla →
+ayır → gizle → tamamen yok et → aynı etiketle yeniden oluştur. Sonuç 20/20 ve
+exit code 0 oldu. Frontend production build, 23 Rust testi, release binary normal
+tray başlangıcı ve NSIS ile Türkçe/İngilizce MSI paketleri ayrıca başarılı oldu.

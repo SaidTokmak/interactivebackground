@@ -158,6 +158,8 @@ kurulmazsa aynı sorunları farklı biçimde tekrar üretir.
 
 ### 9.1 — Pencere yaşam döngüsü ve kritik dönüş hatası
 
+Durum: Tamamlandı — 16 Temmuz 2026
+
 - Wallpaper üzerindeki `Yönetim paneline dön` akışından sonra wallpaper'ın aynı
   süreç içinde tekrar oluşturulup WorkerW katmanına bağlanamaması düzeltilecek.
 - `control` görünürlüğü ile wallpaper'ın varlığı/görünürlüğü ayrı durumlar olarak
@@ -330,7 +332,6 @@ korunur ve beta checklist'in bütün kritik maddeleri geçer.
 
 ## Önerilen bir sonraki çalışma
 
-Faz 9.1 ile başlanmalı; yönetim paneline dönüşten sonra wallpaper'ın tekrar
-açılamaması yaşam döngüsü ve event sırası seviyesinde düzeltilmelidir. Ardından
-preview/gerçek wallpaper için tek bir yerleşim motoru kurulmadan görsel panel
-yenilemesine veya Widget Store'a geçilmemelidir.
+Faz 9.2 ile devam edilmeli; yönetim preview'su ile gerçek wallpaper aynı
+yerleşim motoru ve koordinat dönüşümünü kullanmalıdır. Bu ortak temel kurulmadan
+görsel panel yenilemesine veya Widget Store'a geçilmemelidir.

@@ -88,10 +88,7 @@ pub fn update_settings(
     notify_settings_change(&app);
     // Ayar veritabanına başarıyla yazıldı. Anlık pencere taşıma ikincil bir yan
     // etkidir; başarısız olması kalıcı kaydı başarısız gibi göstermemelidir.
-    let wallpaper_is_visible = app
-        .get_webview_window("wallpaper")
-        .and_then(|window| window.is_visible().ok())
-        .unwrap_or(false);
+    let wallpaper_is_visible = desktop_host.wallpaper_is_visible();
     let native_mode_changed = previous.edit_mode != settings.edit_mode;
     let monitor_changed = previous.monitor_id != settings.monitor_id;
 
@@ -105,12 +102,6 @@ pub fn update_settings(
             eprintln!("Wallpaper native modu güncellenemedi: {error}");
         }
         notify_desktop_host_change(&app);
-    } else if !wallpaper_is_visible && monitor_changed {
-        if let Err(error) =
-            crate::monitors::position_wallpaper(&app, settings.monitor_id.as_deref())
-        {
-            eprintln!("Wallpaper yeni monitöre taşınamadı: {error}");
-        }
     }
     Ok(settings)
 }
@@ -141,10 +132,7 @@ pub fn complete_onboarding(
     notify_background_change(&app);
     notify_desktop_widgets_change(&app);
 
-    let wallpaper_is_visible = app
-        .get_webview_window("wallpaper")
-        .and_then(|window| window.is_visible().ok())
-        .unwrap_or(false);
+    let wallpaper_is_visible = desktop_host.wallpaper_is_visible();
     if wallpaper_is_visible && previous.monitor_id != settings.monitor_id {
         let result = if settings.edit_mode {
             desktop_host.enter_interaction_mode(&app, settings.monitor_id.as_deref())
@@ -432,10 +420,7 @@ pub fn show_control_window(app: &AppHandle) -> Result<(), String> {
 pub fn toggle_wallpaper(app: &AppHandle) -> Result<(), String> {
     let store = app.state::<AppStore>();
     let desktop_host = app.state::<DesktopHostState>();
-    let visible = app
-        .get_webview_window("wallpaper")
-        .and_then(|window| window.is_visible().ok())
-        .unwrap_or(false);
+    let visible = desktop_host.wallpaper_is_visible();
 
     if visible {
         hide_wallpaper_inner(app, &desktop_host)
@@ -533,31 +518,155 @@ pub fn restore_wallpaper_after_restart(app: &AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn show_wallpaper_inner(
+pub(crate) fn show_wallpaper_inner(
     app: &AppHandle,
     store: &AppStore,
     desktop_host: &DesktopHostState,
 ) -> Result<DesktopHostStatus, String> {
-    ensure_wallpaper_window(app)?;
-    let settings = store.get_settings()?;
-    let status = if settings.edit_mode {
-        desktop_host.enter_interaction_mode(app, settings.monitor_id.as_deref())?;
-        desktop_host.status(None)
-    } else {
-        activate_wallpaper_mode(app, desktop_host, settings.monitor_id.as_deref())?
+    // Gecikmeli kapanış kuyruğu varsa bu bayrak pencerenin yeni oturumunu
+    // korur. Native görünürlük yalnızca bütün açılış adımları tamamlanınca
+    // onaylanır.
+    desktop_host.request_wallpaper_visibility(true);
+    let result = (|| {
+        ensure_wallpaper_window(app)?;
+        let settings = store.get_settings()?;
+        if settings.edit_mode {
+            desktop_host.enter_interaction_mode(app, settings.monitor_id.as_deref())?;
+            Ok(desktop_host.status(None))
+        } else {
+            activate_wallpaper_mode(app, desktop_host, settings.monitor_id.as_deref())
+        }
+    })();
+    let result = match result {
+        Ok(status) => status,
+        Err(error) => {
+            desktop_host.request_wallpaper_visibility(false);
+            return Err(error);
+        }
+    };
+    desktop_host.confirm_wallpaper_visible();
+    let status = DesktopHostStatus {
+        visible: true,
+        ..result
     };
     notify_desktop_host_change(app);
     Ok(status)
 }
 
-fn hide_wallpaper_inner(app: &AppHandle, desktop_host: &DesktopHostState) -> Result<(), String> {
-    show_control_window(app)?;
-    desktop_host.destroy_wallpaper_window(app)?;
+pub(crate) fn hide_wallpaper_inner(
+    app: &AppHandle,
+    desktop_host: &DesktopHostState,
+) -> Result<(), String> {
+    hide_wallpaper_transition(app, desktop_host, true)
+}
+
+fn hide_wallpaper_transition(
+    app: &AppHandle,
+    desktop_host: &DesktopHostState,
+    return_to_control: bool,
+) -> Result<(), String> {
+    if return_to_control {
+        show_control_window(app)?;
+    }
+    // Bu komut wallpaper WebView'inden çağrılabilir. WebView'i invoke cevabı
+    // dönmeden senkron yok etmek IPC yanıtını ve aynı label'ın kayıttan
+    // silinmesini yarıda bırakıyordu. Önce görünmez hale getirip native parent'ı
+    // temizliyor, gerçek destroy işlemini cevaptan sonraya bırakıyoruz.
+    desktop_host.request_wallpaper_visibility(false);
+    desktop_host.force_hide_window(app)?;
+    desktop_host.detach(app)?;
+    desktop_host.leave_interaction_mode(app)?;
 
     notify_desktop_host_change(app);
-    eprintln!("interactivebackground wallpaper penceresi tamamen kapatıldı.");
+    schedule_wallpaper_destruction(app.clone());
+    eprintln!("interactivebackground wallpaper gizlendi; güvenli yok etme kuyruğa alındı.");
 
     Ok(())
+}
+
+#[cfg(debug_assertions)]
+pub(crate) fn run_wallpaper_lifecycle_smoke_test(app: AppHandle, cycles: u32) {
+    std::thread::spawn(move || {
+        let result = (|| {
+            for cycle in 1..=cycles {
+                let (open_sender, open_receiver) = std::sync::mpsc::sync_channel(1);
+                let open_app = app.clone();
+                app.run_on_main_thread(move || {
+                    if let Some(control) = open_app.get_webview_window("control") {
+                        let _ = control.hide();
+                    }
+                    let store = open_app.state::<AppStore>();
+                    let desktop_host = open_app.state::<DesktopHostState>();
+                    let result = show_wallpaper_inner(&open_app, &store, &desktop_host);
+                    let _ = open_sender.send(result);
+                })
+                .map_err(|error| format!("{cycle}. açılış ana thread'e alınamadı: {error}"))?;
+                let opened = open_receiver
+                    .recv_timeout(std::time::Duration::from_secs(5))
+                    .map_err(|error| format!("{cycle}. açılış sonucu alınamadı: {error}"))??;
+                if !opened.visible {
+                    return Err(format!("{cycle}. döngüde wallpaper görünür olmadı."));
+                }
+
+                std::thread::sleep(std::time::Duration::from_millis(80));
+                let (close_sender, close_receiver) = std::sync::mpsc::sync_channel(1);
+                let close_app = app.clone();
+                app.run_on_main_thread(move || {
+                    let desktop_host = close_app.state::<DesktopHostState>();
+                    let result = hide_wallpaper_transition(&close_app, &desktop_host, false);
+                    let _ = close_sender.send(result);
+                })
+                .map_err(|error| format!("{cycle}. kapanış ana thread'e alınamadı: {error}"))?;
+                close_receiver
+                    .recv_timeout(std::time::Duration::from_secs(5))
+                    .map_err(|error| format!("{cycle}. kapanış sonucu alınamadı: {error}"))??;
+                if app.state::<DesktopHostState>().wallpaper_is_visible() {
+                    return Err(format!("{cycle}. döngüde wallpaper kapalı duruma geçmedi."));
+                }
+
+                std::thread::sleep(std::time::Duration::from_millis(400));
+                if app.get_webview_window("wallpaper").is_some() {
+                    return Err(format!("{cycle}. döngüde wallpaper kaydı temizlenmedi."));
+                }
+                eprintln!("Wallpaper yaşam döngüsü smoke test: {cycle}/{cycles} başarılı.");
+            }
+            Ok(())
+        })();
+
+        match result {
+            Ok(()) => {
+                eprintln!("Wallpaper yaşam döngüsü smoke test tamamlandı: {cycles}/{cycles}.");
+                app.exit(0);
+            }
+            Err(error) => {
+                eprintln!("Wallpaper yaşam döngüsü smoke test başarısız: {error}");
+                app.exit(21);
+            }
+        }
+    });
+}
+
+fn schedule_wallpaper_destruction(app: AppHandle) {
+    std::thread::spawn(move || {
+        // Invoke yanıtının kaynak WebView'e dönmesi ve Tauri event döngüsünün
+        // kapanış isteğini işlemesi için kısa bir pencere bırakılır.
+        std::thread::sleep(std::time::Duration::from_millis(250));
+        let destroy_app = app.clone();
+        if let Err(error) = app.run_on_main_thread(move || {
+            let desktop_host = destroy_app.state::<DesktopHostState>();
+            if desktop_host.wallpaper_is_desired() {
+                return;
+            }
+            if let Err(error) = desktop_host.destroy_wallpaper_window(&destroy_app) {
+                eprintln!("Wallpaper gecikmeli olarak yok edilemedi: {error}");
+                return;
+            }
+            notify_desktop_host_change(&destroy_app);
+            eprintln!("interactivebackground wallpaper penceresi tamamen kapatıldı.");
+        }) {
+            eprintln!("Wallpaper yok etme işlemi ana thread'e alınamadı: {error}");
+        }
+    });
 }
 
 fn ensure_wallpaper_window(app: &AppHandle) -> Result<tauri::WebviewWindow, String> {

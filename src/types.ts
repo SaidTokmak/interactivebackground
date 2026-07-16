@@ -87,6 +87,7 @@ export type MonitorInfo = {
 
 export type DesktopHostStatus = {
   attached: boolean;
+  visible: boolean;
   mode: "workerW" | "interaction" | "fallback" | "window";
   warning: string | null;
 };

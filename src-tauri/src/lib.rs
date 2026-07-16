@@ -134,6 +134,11 @@ pub fn run() {
         .expect("interactivebackground oluşturulurken beklenmeyen bir hata oluştu")
         .run(|app, event| {
             if let tauri::RunEvent::Ready = event {
+                #[cfg(debug_assertions)]
+                if std::env::args().any(|argument| argument == "--wallpaper-lifecycle-smoke-test") {
+                    commands::run_wallpaper_lifecycle_smoke_test(app.clone(), 20);
+                    return;
+                }
                 let marker = match app.path().app_data_dir() {
                     Ok(directory) => directory.join("recover-wallpaper"),
                     Err(error) => {

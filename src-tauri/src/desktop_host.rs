@@ -11,6 +11,7 @@ use tauri::{AppHandle, Manager};
 #[serde(rename_all = "camelCase")]
 pub struct DesktopHostStatus {
     pub attached: bool,
+    pub visible: bool,
     pub mode: &'static str,
     pub warning: Option<String>,
 }
@@ -32,6 +33,8 @@ pub struct DesktopHostState {
     interaction_mode: AtomicBool,
     fallback_mode: AtomicBool,
     workerw_desired: AtomicBool,
+    wallpaper_desired: AtomicBool,
+    wallpaper_visible: AtomicBool,
     auto_calm_minutes: AtomicU32,
     last_interaction_activity: Mutex<Option<Instant>>,
 }
@@ -45,6 +48,7 @@ impl DesktopHostState {
         self.interaction_mode.store(false, Ordering::Release);
         self.fallback_mode.store(false, Ordering::Release);
         self.workerw_desired.store(false, Ordering::Release);
+        self.wallpaper_visible.store(false, Ordering::Release);
         *self.activity_lock()? = None;
 
         if let Some(wallpaper) = app.get_webview_window("wallpaper") {
@@ -144,6 +148,26 @@ impl DesktopHostState {
         self.interaction_mode.load(Ordering::Acquire)
     }
 
+    pub fn request_wallpaper_visibility(&self, visible: bool) {
+        self.wallpaper_desired.store(visible, Ordering::Release);
+        if !visible {
+            self.wallpaper_visible.store(false, Ordering::Release);
+            self.fallback_mode.store(false, Ordering::Release);
+        }
+    }
+
+    pub fn confirm_wallpaper_visible(&self) {
+        self.wallpaper_visible.store(true, Ordering::Release);
+    }
+
+    pub fn wallpaper_is_desired(&self) -> bool {
+        self.wallpaper_desired.load(Ordering::Acquire)
+    }
+
+    pub fn wallpaper_is_visible(&self) -> bool {
+        self.wallpaper_visible.load(Ordering::Acquire)
+    }
+
     pub fn configure_auto_calm(&self, minutes: Option<u16>) {
         self.auto_calm_minutes
             .store(minutes.map(u32::from).unwrap_or(0), Ordering::Release);
@@ -173,11 +197,15 @@ impl DesktopHostState {
 
     pub fn status(&self, warning: Option<String>) -> DesktopHostStatus {
         let attached = self.is_attached();
+        let visible = self.wallpaper_is_visible();
         let interaction = self.is_interaction_mode();
         let fallback = self.fallback_mode.load(Ordering::Acquire);
         DesktopHostStatus {
             attached,
-            mode: if attached {
+            visible,
+            mode: if !visible {
+                "window"
+            } else if attached {
                 "workerW"
             } else if interaction {
                 "interaction"
@@ -539,6 +567,31 @@ mod platform {
 
     fn native_window_error(error: tauri::Error) -> String {
         format!("Native wallpaper penceresi alınamadı: {error}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tracks_desired_and_confirmed_wallpaper_visibility_separately() {
+        let state = DesktopHostState::default();
+        assert!(!state.status(None).visible);
+        assert!(!state.wallpaper_is_desired());
+
+        state.request_wallpaper_visibility(true);
+        assert!(state.wallpaper_is_desired());
+        assert!(!state.status(None).visible);
+
+        state.confirm_wallpaper_visible();
+        assert!(state.status(None).visible);
+
+        state.request_wallpaper_visibility(false);
+        let closed = state.status(None);
+        assert!(!closed.visible);
+        assert_eq!(closed.mode, "window");
+        assert!(!state.wallpaper_is_desired());
     }
 }
 

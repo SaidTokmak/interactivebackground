@@ -62,7 +62,7 @@ export async function deleteTask(id: number): Promise<void> {
 
 export async function showWallpaper(): Promise<DesktopHostStatus> {
   if (isTauriRuntime()) return invoke<DesktopHostStatus>("show_wallpaper");
-  return { attached: false, mode: "window", warning: null };
+  return { attached: false, visible: false, mode: "window", warning: null };
 }
 
 export async function hideWallpaper(): Promise<void> {
@@ -75,7 +75,7 @@ export async function recordInteractionActivity(): Promise<void> {
 
 export async function getDesktopHostStatus(): Promise<DesktopHostStatus> {
   if (isTauriRuntime()) return invoke<DesktopHostStatus>("desktop_host_status");
-  return { attached: false, mode: "window", warning: null };
+  return { attached: false, visible: false, mode: "window", warning: null };
 }
 
 export async function listMonitors(): Promise<MonitorInfo[]> {

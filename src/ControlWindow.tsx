@@ -99,11 +99,11 @@ export function ControlWindow() {
 
   async function closeWallpaper() {
     await hideWallpaper();
-    setDesktopStatus({ attached: false, mode: "window", warning: null });
+    setDesktopStatus({ attached: false, visible: false, mode: "window", warning: null });
   }
 
   async function toggleWallpaper() {
-    if (desktopStatus && desktopStatus.mode !== "window") await closeWallpaper();
+    if (desktopStatus?.visible) await closeWallpaper();
     else await openWallpaper();
   }
 
@@ -165,7 +165,7 @@ export function ControlWindow() {
           <span className="status-dot"><i /> {t("status.sqliteConnected")}</span>
           <UpdateControl t={t} />
           <button className="header-button" onClick={() => void toggleWallpaper()}>
-            {desktopStatus && desktopStatus.mode !== "window" ? t("header.closeDesktop") : t("header.openDesktop")}
+            {desktopStatus?.visible ? t("header.closeDesktop") : t("header.openDesktop")}
           </button>
           <button className="icon-button" onClick={() => setOnboardingOpen(true)} aria-label={t("onboarding.reopen")}>⚙</button>
         </div>
