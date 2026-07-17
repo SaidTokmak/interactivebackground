@@ -425,6 +425,6 @@ NSIS ile Türkçe ve İngilizce MSI kurucuları temiz release build'den alındı
 
 ## Önerilen bir sonraki çalışma
 
-`0.2.0-1` beta paketi `docs/BETA_ACCEPTANCE.md` üzerinden gerçek ikinci/4K
+`0.2.0-2` beta paketi `docs/BETA_ACCEPTANCE.md` üzerinden gerçek ikinci/4K
 monitörde kullanıcı kabul turuna alınmalı. Kritik manuel maddeler geçince Faz
 9.9 kapatılıp `v0.2.0` kararlı sürüm hazırlığına geçilmelidir.

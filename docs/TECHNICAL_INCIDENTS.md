@@ -600,3 +600,34 @@ koruyarak 20 kez şu zinciri tamamladı: oluştur → konumlandır → WorkerW'y
 ayır → gizle → tamamen yok et → aynı etiketle yeniden oluştur. Sonuç 20/20 ve
 exit code 0 oldu. Frontend production build, 23 Rust testi, release binary normal
 tray başlangıcı ve NSIS ile Türkçe/İngilizce MSI paketleri ayrıca başarılı oldu.
+
+### 17 Temmuz beta kabul regresyonu
+
+`0.2.0-1` beta kabul turunda kapanış kalıntısının giderildiği doğrulandı; ancak
+yönetim paneli görünür olur olmaz gösterilen `Open Desktop` düğmesine basılırsa
+wallpaper tekrar açılmıyordu. Yerleşik smoke test 400 ms bekleyerek 20/20
+geçtiği hâlde gerçek kullanıcı akışının başarısız olması zamanlama farkını
+ortaya çıkardı. Gerçek ikinci monitör `(2560, -247) 1080×1920` konumunda her
+döngüde doğru ölçüldü; dolayısıyla sorun monitör geometrisi veya WorkerW
+bağlantısı değildi.
+
+Kök neden, `hide_wallpaper` komutunun `visible: false` event'ini hemen
+yayınlaması fakat aynı label'a sahip WebView'in 250 ms sonra yok edilmesiydi.
+Yönetim arayüzü bu event ile düğmeyi erken `Open Desktop` durumuna geçiriyor ve
+kullanıcı Tauri pencere kaydı temizlenmeden yeni açılışı başlatabiliyordu.
+Frontend artık kapanışı iyimser biçimde kapalı saymıyor. Native host-changed
+event'i yalnızca gecikmeli destroy başarıyla veya hatayla tamamlandıktan sonra
+yayınlanıyor; böylece düğme eski pencere kaydı temizlenene kadar yeniden açma
+eylemi sunmuyor. Destroy hatasında da event mutlaka yayınlanarak yönetim
+arayüzünün eski durumda takılı kalması engelleniyor.
+
+Bu ara düzeltme gerçek kullanıcı tekrarında yeterli olmadı. Log, Tauri label
+kaydının silindiğini bildirmesine rağmen WebView2'nin `Chrome_WidgetWin_0`
+sınıfını yeniden kaydederken Windows hata `1411` ürettiğini ve ikinci açılışın
+konumlandırma aşamasına ulaşmadığını gösterdi. Nihai çözüm wallpaper WebView'ini
+destroy/recreate döngüsünden tamamen çıkardı. Tek WebView süreç boyunca canlı
+kalıyor; dönüşte `ShowWindow(SW_HIDE)` ile native olarak gizleniyor, WorkerW
+parent'ından ayrılıyor ve Explorer wallpaper cache'i yenileniyor. Yeniden açma
+aynı sağlam HWND/WebView'i hedef monitöre konumlandırıyor. Açık `closing` durumu
+temizlik bitene kadar yönetim düğmesini pasif tutuyor; native açılış hataları da
+artık sessiz promise rejection yerine yönetim ekranında gösteriliyor.

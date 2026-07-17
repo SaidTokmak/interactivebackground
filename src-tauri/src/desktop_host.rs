@@ -12,6 +12,7 @@ use tauri::{AppHandle, Manager};
 pub struct DesktopHostStatus {
     pub attached: bool,
     pub visible: bool,
+    pub closing: bool,
     pub mode: &'static str,
     pub warning: Option<String>,
 }
@@ -35,27 +36,14 @@ pub struct DesktopHostState {
     workerw_desired: AtomicBool,
     wallpaper_desired: AtomicBool,
     wallpaper_visible: AtomicBool,
+    wallpaper_closing: AtomicBool,
     auto_calm_minutes: AtomicU32,
     last_interaction_activity: Mutex<Option<Instant>>,
 }
 
 impl DesktopHostState {
-    pub fn destroy_wallpaper_window(&self, app: &AppHandle) -> Result<(), String> {
-        // Pencere WorkerW'nin child'ı olsa bile HWND'yi doğrudan yok etmek,
-        // Explorer/DWM'nin ikinci monitörde eski top-level çerçeveyi yeniden
-        // çizmesini engeller. Bir sonraki açılışta pencere yeniden oluşturulur.
-        *self.lock()? = None;
-        self.interaction_mode.store(false, Ordering::Release);
-        self.fallback_mode.store(false, Ordering::Release);
-        self.workerw_desired.store(false, Ordering::Release);
-        self.wallpaper_visible.store(false, Ordering::Release);
-        *self.activity_lock()? = None;
-
-        if let Some(wallpaper) = app.get_webview_window("wallpaper") {
-            wallpaper.destroy().map_err(window_error)?;
-        }
-        platform::refresh_desktop()?;
-        Ok(())
+    pub fn refresh_desktop(&self) -> Result<(), String> {
+        platform::refresh_desktop()
     }
 
     pub fn force_hide_window(&self, app: &AppHandle) -> Result<(), String> {
@@ -158,6 +146,19 @@ impl DesktopHostState {
 
     pub fn confirm_wallpaper_visible(&self) {
         self.wallpaper_visible.store(true, Ordering::Release);
+        self.wallpaper_closing.store(false, Ordering::Release);
+    }
+
+    pub fn begin_wallpaper_close(&self) {
+        self.wallpaper_closing.store(true, Ordering::Release);
+    }
+
+    pub fn finish_wallpaper_close(&self) {
+        self.wallpaper_closing.store(false, Ordering::Release);
+    }
+
+    pub fn wallpaper_is_closing(&self) -> bool {
+        self.wallpaper_closing.load(Ordering::Acquire)
     }
 
     pub fn wallpaper_is_desired(&self) -> bool {
@@ -203,6 +204,7 @@ impl DesktopHostState {
         DesktopHostStatus {
             attached,
             visible,
+            closing: self.wallpaper_is_closing(),
             mode: if !visible {
                 "window"
             } else if attached {
@@ -590,6 +592,7 @@ mod tests {
         state.request_wallpaper_visibility(false);
         let closed = state.status(None);
         assert!(!closed.visible);
+        assert!(!closed.closing);
         assert_eq!(closed.mode, "window");
         assert!(!state.wallpaper_is_desired());
     }
@@ -610,6 +613,22 @@ mod tests {
             assert!(!state.wallpaper_is_visible());
             assert_eq!(state.status(None).mode, "window");
         }
+    }
+
+    #[test]
+    fn exposes_the_native_close_transition_until_registry_cleanup_finishes() {
+        let state = DesktopHostState::default();
+        state.request_wallpaper_visibility(true);
+        state.confirm_wallpaper_visible();
+
+        state.begin_wallpaper_close();
+        state.request_wallpaper_visibility(false);
+        let closing = state.status(None);
+        assert!(!closing.visible);
+        assert!(closing.closing);
+
+        state.finish_wallpaper_close();
+        assert!(!state.status(None).closing);
     }
 }
 

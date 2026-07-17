@@ -1,6 +1,6 @@
 [package]
 name = "interactivebackground"
-version = "0.2.0-1"
+version = "0.2.0-2"
 description = "Sakin ve etkileşimli masaüstü çalışma alanı"
 authors = ["SaidTokmak"]
 edition = "2024"

@@ -5,6 +5,7 @@ export const tr = {
   "status.sqliteConnected": "SQLite bağlı",
   "header.openDesktop": "Masaüstünü aç ↗",
   "header.closeDesktop": "Masaüstünü kapat",
+  "header.closingDesktop": "Masaüstü kapatılıyor…",
   "header.openSettings": "Ayarları aç",
   "update.check": "Güncellemeleri denetle",
   "update.checking": "Denetleniyor…",

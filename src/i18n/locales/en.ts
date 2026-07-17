@@ -3,6 +3,7 @@ export const en = {
   "status.sqliteConnected": "SQLite connected",
   "header.openDesktop": "Open desktop ↗",
   "header.closeDesktop": "Close desktop",
+  "header.closingDesktop": "Closing desktop…",
   "header.openSettings": "Open settings",
   "update.check": "Check for updates",
   "update.checking": "Checking…",

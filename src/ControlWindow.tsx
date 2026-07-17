@@ -118,16 +118,25 @@ export function ControlWindow() {
   }
 
   async function openWallpaper() {
-    const status = await showWallpaper();
-    setDesktopStatus(status);
+    try {
+      const status = await showWallpaper();
+      setDesktopStatus(status);
+      setIntegrationError("");
+    } catch (reason) {
+      setIntegrationError(String(reason));
+      void getDesktopHostStatus().then(setDesktopStatus);
+    }
   }
 
   async function closeWallpaper() {
     await hideWallpaper();
-    setDesktopStatus({ attached: false, visible: false, mode: "window", warning: null });
+    // Native pencere IPC cevabından sonra gecikmeli yok edilir. Durumu burada
+    // erkenden "kapalı" yapmak, kullanıcıya eski label kaydı silinmeden yeniden
+    // açma imkânı veriyordu. Son durum native desktop-host event'inden gelir.
   }
 
   async function toggleWallpaper() {
+    if (desktopStatus?.closing) return;
     if (desktopStatus?.visible) await closeWallpaper();
     else await openWallpaper();
   }
@@ -200,8 +209,8 @@ export function ControlWindow() {
         <div className="header-actions">
           <span className="status-dot"><i /> {t("status.sqliteConnected")}</span>
           <UpdateControl t={t} />
-          <button className="header-button" onClick={() => void toggleWallpaper()}>
-            {desktopStatus?.visible ? t("header.closeDesktop") : t("header.openDesktop")}
+          <button className="header-button" disabled={desktopStatus?.closing} onClick={() => void toggleWallpaper()}>
+            {desktopStatus?.closing ? t("header.closingDesktop") : desktopStatus?.visible ? t("header.closeDesktop") : t("header.openDesktop")}
           </button>
           <button className="icon-button" onClick={() => setOnboardingOpen(true)} aria-label={t("onboarding.reopen")}>⚙</button>
         </div>
